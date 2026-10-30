@@ -3,7 +3,7 @@ from pathlib import Path
 
 from qgis.core import QgsTask
 
-from . import ftpindex, grid
+from . import ftpindex, georef, grid
 
 
 class ListTask(QgsTask):
@@ -51,7 +51,7 @@ class DownloadTask(QgsTask):
         self.editions = list(editions)
         self.target_dir = Path(target_dir)
         self.on_done = on_done
-        self.tifs = []  # local .tif paths, in download order
+        self.layers = []  # (layer name, path to load, georef repaired) in download order
         self.error = None
 
     def run(self):
@@ -74,7 +74,9 @@ class DownloadTask(QgsTask):
                             if done < 0:
                                 return False
                     if "tif" in ed.files:
-                        self.tifs.append(str(self.target_dir / ed.files["tif"][0]))
+                        tif = self.target_dir / ed.files["tif"][0]
+                        path, fixed = georef.layer_source(tif)
+                        self.layers.append((tif.name, path, fixed))
                     self.setProgress(100 * min(done, total) / total)
             finally:
                 ftp.close()

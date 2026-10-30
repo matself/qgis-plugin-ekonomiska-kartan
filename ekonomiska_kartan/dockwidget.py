@@ -222,15 +222,24 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         root = QgsProject.instance().layerTreeRoot()
         group = root.addGroup("Ekonomiska kartan")
         crs = QgsCoordinateReferenceSystem(grid.CRS_AUTHID)
-        for path in task.tifs:
-            layer = QgsRasterLayer(path, path.replace("\\", "/").rsplit("/", 1)[-1])
+        loaded = repaired = 0
+        for name, path, fixed in task.layers:
+            layer = QgsRasterLayer(path, name)
             if not layer.isValid():
                 continue
             if not layer.crs().isValid():
                 layer.setCrs(crs)
             QgsProject.instance().addMapLayer(layer, False)
             group.addLayer(layer)
-        self.lbl_status.setText(f"Loaded {len(task.tifs)} sheets.")
+            loaded += 1
+            repaired += fixed
+        text = f"Loaded {loaded} sheets."
+        if repaired:
+            text += (
+                f" {repaired} had a wrong .tfw/.TAB (map squeezed into the grid cell);"
+                " georeferencing repaired in a _fixed.vrt next to the tif."
+            )
+        self.lbl_status.setText(text)
 
     def _run(self, task):
         self._tasks.append(task)
