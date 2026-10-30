@@ -69,7 +69,30 @@ def test_layer_source_leaves_good_sheets_alone(tmp_path):
     assert georef.layer_source(tmp_path / "a.tif") == (str(tmp_path / "a.tif"), None)
 
 
-def test_layer_source_measures_and_crops(tmp_path):
+def test_inferred_offsets_from_neighbours():
+    # 3g6h is enlarged to the south (no sheet 3g5h): the cell is at the top of the scan
+    assert georef.inferred_offset("133_3g6h77_0_b2") == (0, 0)
+    assert georef.known_offset("133_3g6h77_0_b2") is None
+    # no image needed when the side is known
+    assert georef.locate_cell("133_3g6h77_0_b2", "missing.tif", 5000, 5404) == (
+        0,
+        0,
+        georef.INFERRED,
+    )
+    # verified positions win over inferred ones
+    assert georef.locate_cell("133_8a6g78_0_b2", "missing.tif", 5403, 5000)[2] == georef.VERIFIED
+
+
+def test_inferred_agrees_with_verified_within_a_few_pixels():
+    rows = list(georef._known().items())
+    both = [(v, i) for v, i in (r[1] for r in rows) if v and i]
+    assert both
+    for verified, inferred in both:
+        (vx, vy), (ix, iy) = georef._offset(verified), georef._offset(inferred)
+        assert abs(vx - ix) <= 5 and abs(vy - iy) <= 5
+
+
+def test_layer_source_measures_and_keeps_the_whole_scan(tmp_path):
     np = pytest.importorskip("numpy")
     gdal = pytest.importorskip("osgeo.gdal")
     cell, width = 200, 260  # synthetic sheet: 60 px of white margin on the left
@@ -89,6 +112,7 @@ def test_layer_source_measures_and_crops(tmp_path):
     vrt, status = georef.layer_source(path, cell=cell)
     assert status == georef.MEASURED and vrt.endswith("_fixed.vrt")
     out = gdal.Open(vrt)
-    assert (out.RasterXSize, out.RasterYSize) == (cell, cell)
-    assert out.GetGeoTransform()[:2] == pytest.approx((1000.0, 1.0))
-    assert out.GetRasterBand(1).ReadAsArray().max() == 40  # margin cropped away
+    assert (out.RasterXSize, out.RasterYSize) == (width, cell)  # nothing is cropped
+    # 1 m/px, the cell's north-west corner (1000, 5000) lies 60 px into the scan
+    assert out.GetGeoTransform()[:2] == pytest.approx((940.0, 1.0))
+    assert out.GetGeoTransform()[3] == pytest.approx(5000.0)

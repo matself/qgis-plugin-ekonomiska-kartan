@@ -317,7 +317,7 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         if repaired:
             text += " " + self.tr(
                 "{count} were larger than their grid cell (wrong .tfw/.TAB); placement"
-                " repaired in a _fixed.vrt next to the tif."
+                " repaired in a _fixed.vrt next to the tif, the extra map area is kept."
             ).format(count=repaired)
         if unverified:
             text += " " + self.tr(

@@ -14,10 +14,14 @@ Lantmäteriet publishes as open data.
 - Sheets with several editions (years) get an edition selector; the latest is the default.
 - Downloads `.tif/.tfw/.TAB` anonymously from `download-opendata.lantmateriet.se` in a
   background task and loads the rasters into a layer group.
-- About 1.5 % of the editions are scanned larger than their grid cell and have a wrong
-  `.tfw/.TAB`. They are loaded through a cropped `_fixed.vrt`; the list of these editions is
-  in `ekonomiska_kartan/data/nonstandard_sheets.csv`. Only a few positions are verified by
-  eye - the rest are measured from the image and flagged "(unverified)" when uncertain.
+- About 1.5 % of the editions (187) are scanned larger than their grid cell: Lantmäteriet
+  enlarged those sheets towards a side without a neighbour sheet, but wrote a `.tfw/.TAB` that
+  squeezes the whole scan into one cell. They are loaded through a `_fixed.vrt` that places the
+  whole scan at 1 m/pixel, so the extra map outside the cell is kept. The side is taken from the
+  checklist `ekonomiska_kartan/data/nonstandard_sheets.csv`: verified by eye (5 sheets), inferred
+  from the missing neighbour sheet (130 of 187, `scripts/infer_offsets.py`), otherwise measured from
+  the image and flagged "(unverified)" when uncertain. A few pixels of difference are within
+  the scanning and rectification accuracy and are not corrected.
 
 ## Install
 

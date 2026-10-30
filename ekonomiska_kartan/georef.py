@@ -1,20 +1,23 @@
 """Repair the georeferencing of sheets whose map does not fit the 5x5 km grid cell.
 
-187 of the 12 012 sheet editions are larger than 5000 x 5000 px (never smaller): the
-scan is the grid cell plus extra margin on one or more sides. Their .tfw / .TAB were
-generated as if the whole image were exactly one cell, so the image is squeezed
-(pixel size e.g. 0.9457 m instead of 1.0 m). Checked against the base map: the scan is
-1.0 m/pixel and the map neatline is exactly one cell (5000 px) wide, but the margin can
-be on any side (west coast sheets have it on the left), which the metadata does not say.
+187 of the 12 012 sheet editions are larger than 5000 x 5000 px (never smaller). Lantmäteriet
+enlarged those sheets towards a side where the land would otherwise have needed a sheet of its
+own, so the scan is the grid cell plus extra map on one or more sides and there is no
+neighbour sheet on that side. Their .tfw / .TAB were generated as if the whole image were
+exactly one cell, so the image is squeezed (pixel size e.g. 0.9457 m instead of 1.0 m).
+Checked against the base map: the scan is 1.0 m/pixel and the neatline is exactly one cell
+(5000 px) wide, but the metadata does not say on which side the extra map lies.
 
 Where the cell lies inside the image is therefore found in this order:
   1. ``data/nonstandard_sheets.csv``, column ``verified_offset`` (checked by eye),
-  2. measured from the image: the 5000 px window with paper-white margin just outside it.
+  2. column ``inferred_offset``: the enlargement is on the side without a neighbour sheet
+     (made by ``scripts/infer_offsets.py``; empty when that cannot be told),
+  3. measured from the image: the 5000 px window with paper-white margin just outside it.
 Measured results with a small cost gap are flagged as unverified.
 
-The downloaded files are never touched; a ``<stem>_fixed.vrt`` cropped to the grid cell is
-written next to the tif and loaded instead. Everything except the measuring is pure
-Python so it can be tested without QGIS.
+The downloaded files are never touched; a ``<stem>_fixed.vrt`` that places the whole scan at
+1.0 m/pixel (the extra map is kept, outside the grid cell) is written next to the tif and
+loaded instead. Everything except the measuring is pure Python so it can be tested without QGIS.
 """
 import csv
 import re
@@ -35,7 +38,7 @@ _TAB_POINT = re.compile(
     r"^\s*\(\s*[-\d.]+\s*,\s*[-\d.]+\s*\)\s*\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)\s*Label", re.M
 )
 
-VERIFIED, MEASURED, UNVERIFIED = "verified", "measured", "unverified"
+VERIFIED, INFERRED, MEASURED, UNVERIFIED = "verified", "inferred", "measured", "unverified"
 
 
 def parse_tfw(text):
@@ -95,11 +98,15 @@ def paper_profiles(tif_path):
 
 @lru_cache(maxsize=1)
 def _known():
+    """{stem: (verified_offset, inferred_offset)} as the strings in the CSV."""
     out = {}
     if DATA_FILE.exists():
         with open(DATA_FILE, encoding="utf-8", newline="") as fh:
             for row in csv.DictReader(fh):
-                out[row["stem"].lower()] = row["verified_offset"].strip()
+                out[row["stem"].lower()] = (
+                    row["verified_offset"].strip(),
+                    row.get("inferred_offset", "").strip(),
+                )
     return out
 
 
@@ -108,13 +115,21 @@ def is_listed(stem):
     return stem.lower() in _known()
 
 
-def known_offset(stem):
-    """Verified (kx, ky) margin in px before the cell (left, top), or None."""
-    value = _known().get(stem.lower(), "")
+def _offset(value):
     if not value:
         return None
     kx, ky = value.split(",")
     return int(kx), int(ky)
+
+
+def known_offset(stem):
+    """Verified (kx, ky): px of the scan left of / above the cell, or None."""
+    return _offset(_known().get(stem.lower(), ("", ""))[0])
+
+
+def inferred_offset(stem):
+    """(kx, ky) from the side without a neighbour sheet, or None."""
+    return _offset(_known().get(stem.lower(), ("", ""))[1])
 
 
 def fixed_vrt_path(tif_path):
@@ -123,10 +138,13 @@ def fixed_vrt_path(tif_path):
 
 
 def locate_cell(stem, tif_path, width, height, cell=CELL_PX):
-    """(kx, ky, status): px of margin left of / above the cell inside the image."""
+    """(kx, ky, status): px of the scan left of / above the cell inside the image."""
     known = known_offset(stem)
     if known is not None:
         return known[0], known[1], VERIFIED
+    inferred = inferred_offset(stem)
+    if inferred is not None:
+        return inferred[0], inferred[1], INFERRED
     cols, rows = paper_profiles(tif_path)
     kx, gap_x = best_offset(cols, cell) if width > cell else (0, float("inf"))
     ky, gap_y = best_offset(rows, cell) if height > cell else (0, float("inf"))
@@ -137,7 +155,7 @@ def locate_cell(stem, tif_path, width, height, cell=CELL_PX):
 def layer_source(tif_path, cell=CELL_PX):
     """What to load for a downloaded tif.
 
-    Returns (path, status): status is None for a normal sheet, otherwise VERIFIED,
+    Returns (path, status): status is None for a normal sheet, otherwise VERIFIED, INFERRED,
     MEASURED or UNVERIFIED for a repaired ``_fixed.vrt``.
     """
     tif_path = Path(tif_path)
@@ -158,17 +176,16 @@ def layer_source(tif_path, cell=CELL_PX):
     a, _d, _b, e, c, f = tfw
     cell_x, cell_top = c - a / 2, f - e / 2  # north-west corner of the cell (tfw = pixel centre)
     kx, ky, status = locate_cell(tif_path.stem, tif_path, width, height, cell)
-    cols, rows = min(cell, width - kx), min(cell, height - ky)
 
     from osgeo import gdal  # shipped with QGIS; imported here to keep the module testable
 
     vrt = fixed_vrt_path(tif_path)
+    west, north = cell_x - kx * PIXEL, cell_top + ky * PIXEL  # north-west corner of the scan
     gdal.Translate(
         str(vrt),
         str(tif_path),
         format="VRT",
-        srcWin=[kx, ky, cols, rows],
-        outputBounds=[cell_x, cell_top, cell_x + cols * PIXEL, cell_top - rows * PIXEL],
+        outputBounds=[west, north, west + width * PIXEL, north - height * PIXEL],  # ulx uly lrx lry
         outputSRS=grid.CRS_AUTHID,
     )
     return str(vrt), status

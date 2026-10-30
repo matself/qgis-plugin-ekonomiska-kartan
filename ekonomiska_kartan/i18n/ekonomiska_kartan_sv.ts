@@ -158,8 +158,8 @@
     </message>
     <message>
         <location filename="../dockwidget.py" line="274"/>
-        <source>{count} were larger than their grid cell (wrong .tfw/.TAB); placement repaired in a _fixed.vrt next to the tif.</source>
-        <translation>{count} var större än sin rutcell (felaktig .tfw/.TAB); placeringen är rättad i en _fixed.vrt bredvid tif-filen.</translation>
+        <source>{count} were larger than their grid cell (wrong .tfw/.TAB); placement repaired in a _fixed.vrt next to the tif, the extra map area is kept.</source>
+        <translation>{count} var större än sin rutcell (felaktig .tfw/.TAB); placeringen är rättad i en _fixed.vrt bredvid tif-filen, den extra kartytan finns kvar.</translation>
     </message>
     <message>
         <location filename="../dockwidget.py" line="279"/>
