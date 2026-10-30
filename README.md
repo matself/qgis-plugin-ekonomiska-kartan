@@ -1,3 +1,5 @@
+<img src="ekonomiska_kartan/icon.svg" alt="Plugin icon" width="72" height="72" align="right">
+
 # Geodata: Ekonomiska kartan (Lantmäteriet)
 
 > **Experimental pre-release (0.1.0).** Expect rough edges; please report problems in the
