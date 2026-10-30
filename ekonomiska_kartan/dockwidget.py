@@ -19,6 +19,7 @@ from qgis.PyQt.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
@@ -31,6 +32,7 @@ from .maptool import RectTool, style_band
 from .tasks import DownloadTask, ListTask
 
 EDITION_ROLE = Qt.ItemDataRole.UserRole
+LARGE_DOWNLOAD = 50  # sheets; ask for confirmation from this many selected sheets
 PLACEMENT_KEY = "ekonomiska_kartan/placement"
 TOP, ABOVE_SELECTED, BOTTOM = "top", "selected", "bottom"
 
@@ -90,6 +92,8 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels([self.tr("Sheet"), self.tr("Edition"), self.tr("Size")])
         self.tree.itemChanged.connect(self._update_total)
+        self.tree.setMinimumHeight(90)
+        self.tree.setMaximumHeight(190)  # about 7 rows, then it scrolls; saves screen space
         layout.addWidget(self.tree)
 
         self.lbl_total = QLabel("")
@@ -126,6 +130,7 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.lbl_status = QLabel("")
         self.lbl_status.setWordWrap(True)
         layout.addWidget(self.lbl_status)
+        layout.addStretch(1)
         self.setWidget(content)
 
     # -- map: grid and search box ---------------------------------------
@@ -266,9 +271,24 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             self._choose_dir()
         if not self.dir_edit.text():
             return
+        eds = self._selected()
+        if len(eds) >= LARGE_DOWNLOAD and not self._confirm_large(eds):
+            return
         self.btn_download.setEnabled(False)
         self.lbl_status.setText(self.tr("Downloading …"))
-        self._run(DownloadTask(self._selected(), self.dir_edit.text(), self._on_downloaded))
+        self._run(DownloadTask(eds, self.dir_edit.text(), self._on_downloaded))
+
+    def _confirm_large(self, eds):
+        text = self.tr("You are about to download {count} sheets, about {size}. Continue?")
+        size = _mb(sum(e.tif_size or 0 for e in eds))
+        answer = QMessageBox.question(
+            self,
+            self.tr("Large download"),
+            text.format(count=len(eds), size=size),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return answer == QMessageBox.StandardButton.Yes
 
     def _on_downloaded(self, task, ok):
         self.btn_download.setEnabled(True)

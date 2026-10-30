@@ -4,6 +4,14 @@
 <context>
     <name>EkonomiskaKartanDockWidget</name>
     <message>
+        <source>Large download</source>
+        <translation>Stor nedladdning</translation>
+    </message>
+    <message>
+        <source>You are about to download {count} sheets, about {size}. Continue?</source>
+        <translation>Du håller på att hämta {count} blad, cirka {size}. Fortsätta?</translation>
+    </message>
+    <message>
         <source>No Ekonomiska kartan sheets found in this area.</source>
         <translation>Inga blad ur Ekonomiska kartan hittades i området.</translation>
     </message>
