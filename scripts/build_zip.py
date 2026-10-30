@@ -10,16 +10,23 @@ SKIP_DIRS = {"__pycache__", ".git"}
 SKIP_SUFFIXES = {".pyc", ".ts"}
 
 
-def read_version():
+def read_metadata():
     parser = configparser.ConfigParser(interpolation=None)
     parser.read(PLUGIN_DIR / "metadata.txt", encoding="utf-8")
-    return parser["general"]["version"]
+    return parser["general"]
+
+
+def zip_name():
+    """<module>-<version>[-experimental].zip; experimental follows metadata.txt."""
+    meta = read_metadata()
+    suffix = "-experimental" if meta.getboolean("experimental", fallback=False) else ""
+    return f"{MODULE}-{meta['version']}{suffix}.zip"
 
 
 def main():
     out_dir = ROOT / "dist"
     out_dir.mkdir(exist_ok=True)
-    target = out_dir / f"{MODULE}-{read_version()}.zip"
+    target = out_dir / zip_name()
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as zf:
         for path in sorted(PLUGIN_DIR.rglob("*")):
             rel = path.relative_to(ROOT)

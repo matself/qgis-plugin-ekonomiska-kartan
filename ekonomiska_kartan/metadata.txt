@@ -2,19 +2,19 @@
 name=Geodata: Ekonomiska kartan (Lantmäteriet)
 qgisMinimumVersion=3.34
 qgisMaximumVersion=4.99
-description=Bla bla
+description=[Experimental] Search, download and load Lantmäteriet's historical Ekonomiska kartan sheets
 version=0.1.0
 author=Mats Elfström
 email=mats.elfstrom@gmail.com
-about=Bla bla Replace this with a longer description in English.
-tracker=https://github.com/matself/ekonomiska-kartan/issues
-repository=https://github.com/matself/ekonomiska-kartan
-homepage=https://github.com/matself/ekonomiska-kartan
+about=EXPERIMENTAL PRE-RELEASE. Pick an area by drawing a search box or using the map extent, see the 5x5 km sheet grid (EPSG:3021) on the map, choose an edition per sheet, and download and load the georeferenced scans of Lantmäteriet's open Ekonomiska kartan. Sheets whose scan is larger than the grid cell (wrongly georeferenced in the source .tfw/.TAB) are repaired on load and flagged when the position is only measured. Data is fetched anonymously from Lantmäteriet's open data FTP server.
+tracker=https://github.com/matself/qgis-plugin-ekonomiska-kartan/issues
+repository=https://github.com/matself/qgis-plugin-ekonomiska-kartan
+homepage=https://github.com/matself/qgis-plugin-ekonomiska-kartan
 category=Plugins
 icon=icon.svg
-tags=
+tags=lantmateriet,sweden,historical maps,ekonomiska kartan,raster,download
 experimental=True
 deprecated=False
 license=GPL-2.0-or-later
 changelog=
-    0.1.0 - Initial version
+    0.1.0 - Experimental pre-release: search box, sheet grid, edition choice, download and load, repair of oversized sheets
