@@ -55,6 +55,6 @@ class EkonomiskaKartanPlugin:
 
     def run(self):
         if self.dock is None:
-            self.dock = EkonomiskaKartanDockWidget(self.iface.mainWindow())
+            self.dock = EkonomiskaKartanDockWidget(self.iface, self.iface.mainWindow())
             self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock)
         self.dock.setVisible(not self.dock.isVisible())
