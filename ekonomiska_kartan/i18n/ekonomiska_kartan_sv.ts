@@ -4,6 +4,22 @@
 <context>
     <name>EkonomiskaKartanDockWidget</name>
     <message>
+        <source>Add to layer list:</source>
+        <translation>Lägg i lagerlistan:</translation>
+    </message>
+    <message>
+        <source>At the top</source>
+        <translation>Överst</translation>
+    </message>
+    <message>
+        <source>Above the selected layer</source>
+        <translation>Ovanför valt lager</translation>
+    </message>
+    <message>
+        <source>At the bottom</source>
+        <translation>Underst</translation>
+    </message>
+    <message>
         <location filename="../dockwidget.py" line="62"/>
         <source>Draw search box on map</source>
         <translation>Rita sökruta på kartan</translation>

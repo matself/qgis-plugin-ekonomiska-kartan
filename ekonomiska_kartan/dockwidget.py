@@ -4,11 +4,12 @@ from qgis.core import (
     QgsApplication,
     QgsCoordinateReferenceSystem,
     QgsGeometry,
+    QgsLayerTreeLayer,
     QgsProject,
     QgsRasterLayer,
 )
 from qgis.gui import QgsRubberBand
-from qgis.PyQt.QtCore import QCoreApplication, Qt, QTimer
+from qgis.PyQt.QtCore import QCoreApplication, QSettings, Qt, QTimer
 from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
     QCheckBox,
@@ -30,6 +31,8 @@ from .maptool import RectTool, style_band
 from .tasks import DownloadTask, ListTask
 
 EDITION_ROLE = Qt.ItemDataRole.UserRole
+PLACEMENT_KEY = "ekonomiska_kartan/placement"
+TOP, ABOVE_SELECTED, BOTTOM = "top", "selected", "bottom"
 
 
 def _mb(size):
@@ -99,6 +102,20 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         btn_dir.clicked.connect(self._choose_dir)
         row.addWidget(self.dir_edit)
         row.addWidget(btn_dir)
+        layout.addLayout(row)
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel(self.tr("Add to layer list:")))
+        self.cmb_place = QComboBox()
+        self.cmb_place.addItem(self.tr("At the top"), TOP)
+        self.cmb_place.addItem(self.tr("Above the selected layer"), ABOVE_SELECTED)
+        self.cmb_place.addItem(self.tr("At the bottom"), BOTTOM)
+        saved = self.cmb_place.findData(QSettings().value(PLACEMENT_KEY, TOP))
+        self.cmb_place.setCurrentIndex(max(saved, 0))
+        self.cmb_place.currentIndexChanged.connect(
+            lambda _i: QSettings().setValue(PLACEMENT_KEY, self.cmb_place.currentData())
+        )
+        row.addWidget(self.cmb_place, 1)
         layout.addLayout(row)
 
         self.btn_download = QPushButton(self.tr("Download and load"))
@@ -255,8 +272,7 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             error = task.error or self.tr("cancelled")
             self.lbl_status.setText(self.tr("Download failed: {error}").format(error=error))
             return
-        root = QgsProject.instance().layerTreeRoot()
-        group = root.addGroup("Ekonomiska kartan")
+        group = self._new_group("Ekonomiska kartan")
         crs = QgsCoordinateReferenceSystem(grid.CRS_AUTHID)
         loaded, repaired, unverified = 0, 0, []
         for name, path, status in task.layers:
@@ -284,6 +300,32 @@ class EkonomiskaKartanDockWidget(QDockWidget):
                 "Placement uncertain, please check against a base map: {names}."
             ).format(names=", ".join(unverified))
         self.lbl_status.setText(text)
+
+    def _new_group(self, name):
+        """A new layer group at the place chosen in the panel."""
+        root = QgsProject.instance().layerTreeRoot()
+        place = self.cmb_place.currentData()
+        if place == BOTTOM:
+            return root.addGroup(name)
+        parent, index = root, 0
+        if place == ABOVE_SELECTED:
+            node = self.iface.layerTreeView().currentNode()
+            if node is not None and node.parent() is not None:
+                parent = node.parent()
+                index = parent.children().index(node)
+        children = parent.children()
+        # keep the sheet grid (a thin outline layer) on top of the maps
+        grid_layer = gridlayer.get_layer()
+        if (
+            parent is root
+            and index == 0
+            and children
+            and isinstance(children[0], QgsLayerTreeLayer)
+            and grid_layer is not None
+            and children[0].layerId() == grid_layer.id()
+        ):
+            index = 1
+        return parent.insertGroup(index, name)
 
     def _run(self, task):
         self._tasks.append(task)
