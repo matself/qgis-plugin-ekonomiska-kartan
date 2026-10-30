@@ -1,13 +1,17 @@
 """Dock widget for Ekonomiska kartan."""
 from qgis.core import (
+    Qgis,
     QgsApplication,
     QgsCoordinateReferenceSystem,
-    QgsCoordinateTransform,
+    QgsGeometry,
     QgsProject,
     QgsRasterLayer,
 )
-from qgis.PyQt.QtCore import Qt
+from qgis.gui import QgsRubberBand
+from qgis.PyQt.QtCore import Qt, QTimer
+from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDockWidget,
     QFileDialog,
@@ -21,7 +25,8 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
-from . import grid
+from . import grid, gridlayer
+from .maptool import RectTool, style_band
 from .tasks import DownloadTask, ListTask
 
 EDITION_ROLE = Qt.ItemDataRole.UserRole
@@ -39,13 +44,33 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.iface = iface
         self.setObjectName("EkonomiskaKartanDockWidget")
         self._tasks = []  # keep Python references alive while running
+        self.canvas = iface.mapCanvas()
+        self.tool = RectTool(self.canvas)
+        self.tool.finished.connect(self._on_rect_drawn)
+        self.tool.deactivated.connect(lambda: self.btn_draw.setChecked(False))
+        self.area_band = QgsRubberBand(self.canvas, Qgis.GeometryType.Polygon)
+        style_band(self.area_band, QColor(220, 30, 30), QColor(220, 30, 30, 30))
+        self._grid_timer = QTimer(self)
+        self._grid_timer.setSingleShot(True)
+        self._grid_timer.setInterval(250)
+        self._grid_timer.timeout.connect(self._update_grid)
 
         content = QWidget(self)
         layout = QVBoxLayout(content)
 
+        self.btn_draw = QPushButton("Draw search box on map")
+        self.btn_draw.setCheckable(True)
+        self.btn_draw.setToolTip("Drag a rectangle, or click to pick a single sheet")
+        self.btn_draw.toggled.connect(self._toggle_draw)
+        layout.addWidget(self.btn_draw)
+
         self.btn_extent = QPushButton("Use current map extent")
         self.btn_extent.clicked.connect(self.search_canvas_extent)
         layout.addWidget(self.btn_extent)
+
+        self.chk_grid = QCheckBox("Show sheet grid on map")
+        self.chk_grid.toggled.connect(self._toggle_grid)
+        layout.addWidget(self.chk_grid)
 
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(["Sheet", "Edition", "Size"])
@@ -74,27 +99,60 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         layout.addWidget(self.lbl_status)
         self.setWidget(content)
 
+    # -- map: grid and search box ---------------------------------------
+    def _toggle_draw(self, on):
+        if on:
+            self.canvas.setMapTool(self.tool)
+        elif self.canvas.mapTool() is self.tool:
+            self.canvas.unsetMapTool(self.tool)
+
+    def _toggle_grid(self, on):
+        if on:
+            self.canvas.extentsChanged.connect(self._grid_timer.start)
+            self._update_grid()
+        else:
+            self.canvas.extentsChanged.disconnect(self._grid_timer.start)
+            gridlayer.remove_layer()
+
+    def _update_grid(self):
+        gridlayer.update_layer(gridlayer.canvas_bbox_3021(self.canvas))
+
+    def _on_rect_drawn(self, rect):
+        self.area_band.setToGeometry(QgsGeometry.fromRect(rect), None)
+        self._search(gridlayer.rect_to_3021(rect, self.canvas.mapSettings().destinationCrs()))
+
+    def cleanup(self):
+        """Remove everything this widget put on the map (called on plugin unload)."""
+        if self.chk_grid.isChecked():
+            self.chk_grid.setChecked(False)
+        self.canvas.unsetMapTool(self.tool)
+        self.tool.cleanup()
+        self.canvas.scene().removeItem(self.area_band)
+
     # -- search ---------------------------------------------------------
     def search_canvas_extent(self):
-        canvas = self.iface.mapCanvas()
-        src = canvas.mapSettings().destinationCrs()
-        dst = QgsCoordinateReferenceSystem(grid.CRS_AUTHID)
-        rect = QgsCoordinateTransform(src, dst, QgsProject.instance()).transformBoundingBox(
-            canvas.extent()
-        )
+        rect = self.canvas.extent()
+        self.area_band.setToGeometry(QgsGeometry.fromRect(rect), None)
+        self._search(gridlayer.canvas_bbox_3021(self.canvas))
+
+    def _search(self, bbox):
         rutor = grid.rutor_in_bbox(
-            rect.xMinimum(), rect.yMinimum(), rect.xMaximum(), rect.yMaximum()
+            bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(), bbox.yMaximum()
         )
+        if not rutor:
+            self.lbl_status.setText("The area is outside the Ekonomiska kartan grid.")
+            return
         if len(rutor) > 100:
-            self.lbl_status.setText(f"{len(rutor)} sheets - zoom in first (max 100).")
+            self.lbl_status.setText(f"{len(rutor)} sheets - choose a smaller area (max 100).")
             return
         self.lbl_status.setText(f"Listing {len(rutor)} sheets …")
         self.btn_extent.setEnabled(False)
-        task = ListTask(rutor, self._on_listed)
-        self._run(task)
+        self.btn_draw.setEnabled(False)
+        self._run(ListTask(rutor, self._on_listed))
 
     def _on_listed(self, task, ok):
         self.btn_extent.setEnabled(True)
+        self.btn_draw.setEnabled(True)
         if not ok:
             self.lbl_status.setText(f"Listing failed: {task.error or 'cancelled'}")
             return

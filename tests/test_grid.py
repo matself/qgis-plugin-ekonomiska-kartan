@@ -55,3 +55,15 @@ def test_against_shapefile():
         != tuple(round(v) for v in b)
     ]
     assert len(mismatches) <= len(grid.IRREGULAR)
+
+
+def test_bbox_clipped_to_grid():
+    assert grid.rutor_in_bbox(0, 0, 100, 100) == []  # entirely off-grid
+    assert grid.count_in_bbox(1_200_000, 6_100_000, 1_210_000, 6_110_000) == 4
+    everything = grid.count_in_bbox(1_200_000, 6_100_000, 9_000_000, 9_000_000)
+    assert everything == grid.N_COLS * grid.N_ROWS
+
+
+def test_blocks():
+    assert grid.storruta_bounds("10a") == (1_200_000, 6_550_000, 1_250_000, 6_600_000)
+    assert grid.storrutor_in_bbox(1_200_000, 6_550_000, 1_260_000, 6_560_000) == ["10a", "10b"]

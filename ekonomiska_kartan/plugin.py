@@ -46,6 +46,7 @@ class EkonomiskaKartanPlugin:
         self.action.deleteLater()
         self.action = None
         if self.dock is not None:
+            self.dock.cleanup()
             self.iface.removeDockWidget(self.dock)
             self.dock.deleteLater()
             self.dock = None
