@@ -25,6 +25,22 @@ Lantmäteriet publishes as open data.
   the image and flagged "(unverified)" when uncertain. A few pixels of difference are within
   the scanning and rectification accuracy and are not corrected.
 
+## Not covered
+
+The plugin finds sheets from a synthetic 5x5 km grid (EPSG:3021) that it computes itself, and
+loads the `.tif/.tfw/.TAB` of each sheet. That is why only data with a georeferenced sheet in
+that grid is covered. Left out on purpose:
+
+- **`Norrlands_inland`** on the same server: a separate series of about 1 050 scans (roughly
+  80 MB each) with their own names (`141_15c2-3g-h77_0.tif`), no `.tfw/.TAB` and no coordinates.
+  Their position is only given by an index shapefile (`Norrlands_Inland.shp`), so loading them
+  would mean reading that index and placing every scan ourselves, a different job from loading
+  sheets that already carry their georeferencing.
+- **Sheet `4e6f`** (1952 and 1979): on the server only as ungeoreferenced `.tiff` scans
+  (6450 x 6221 px, no `.tfw/.TAB`), so it shows up as "without map" although all its neighbours
+  have one.
+- **`Bladindelningskartor`**: PDF overview maps of the sheet division, not map sheets.
+
 ## Install
 
 Download `ekonomiska_kartan-0.1.0-experimental.zip` from the

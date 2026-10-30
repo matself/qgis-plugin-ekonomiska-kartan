@@ -12,6 +12,10 @@ HOST = "download-opendata.lantmateriet.se"
 ROOT = "/Ekonomiska_kartan"
 EXTENSIONS = ("tif", "tfw", "tab")
 
+# The server keeps a few sheets in the directory of a neighbouring block (found by listing
+# every directory): 13h5f and 13h5g are in /13g. block -> other directories to look in.
+EXTRA_DIRECTORIES = {"13h": ("13g",)}
+
 # 133_<sheet><year>[-n]_0_b2.<ext>; year is missing for a few files
 FILE_RE = re.compile(
     r"^133_(?P<ruta>\d+[a-z]\d[a-z])(?P<tail>[^_]*)_0_b2\.(?P<ext>tif|tfw|tab)$",
@@ -131,6 +135,11 @@ def editions_from_listing(lines, directory):
     for eds in result.values():
         eds.sort(key=lambda e: e.sort_key)
     return result
+
+
+def directories_for(blocks):
+    """FTP directories to list for the given blocks (a few blocks have sheets elsewhere)."""
+    return sorted({d for b in blocks for d in (b, *EXTRA_DIRECTORIES.get(b, ()))})
 
 
 def select_editions(by_ruta, wanted):

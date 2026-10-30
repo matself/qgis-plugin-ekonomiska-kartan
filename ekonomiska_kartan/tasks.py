@@ -22,7 +22,7 @@ class ListTask(QgsTask):
         self.error = None
 
     def run(self):
-        blocks = grid.storrutor(self.rutor)
+        blocks = ftpindex.directories_for(grid.storrutor(self.rutor))
         wanted = set(self.rutor)
         try:
             ftp = ftpindex.connect()

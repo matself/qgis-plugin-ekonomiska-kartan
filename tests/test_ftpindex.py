@@ -99,3 +99,9 @@ def test_search_finds_a_composite_sheet_from_any_of_its_cells():
     chosen, covered = ftpindex.select_editions(by_ruta, {"3c0a", "3c0b", "3c1a", "3c1b"})
     assert set(chosen) == {"3c0a", "3c1a"}  # listed once, under its first cell
     assert covered == {"3c0a", "3c0b", "3c1a"}  # 3c1b has no map
+
+
+def test_directories_include_the_neighbour_that_holds_misplaced_sheets():
+    assert ftpindex.directories_for(["13h"]) == ["13g", "13h"]  # 13h5f and 13h5g are in /13g
+    assert ftpindex.directories_for(["13g", "13h"]) == ["13g", "13h"]
+    assert ftpindex.directories_for(["4d"]) == ["4d"]
