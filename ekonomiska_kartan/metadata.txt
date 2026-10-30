@@ -1,5 +1,5 @@
 [general]
-name=Ekonomiska kartan
+name=Geodata: Ekonomiska kartan (Lantmäteriet)
 qgisMinimumVersion=3.34
 qgisMaximumVersion=4.99
 description=Bla bla

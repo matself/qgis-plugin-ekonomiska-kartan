@@ -1,4 +1,4 @@
-# Ekonomiska kartan
+# Geodata: Ekonomiska kartan (Lantmäteriet)
 
 Bla bla
 

@@ -40,7 +40,7 @@ class EkonomiskaKartanDockWidget(QDockWidget):
     """Pick an area, choose editions per sheet, download and load the rasters."""
 
     def __init__(self, iface, parent=None):
-        super().__init__("Ekonomiska kartan", parent)
+        super().__init__("Geodata: Ekonomiska kartan (Lantmäteriet)", parent)
         self.iface = iface
         self.setObjectName("EkonomiskaKartanDockWidget")
         self._tasks = []  # keep Python references alive while running

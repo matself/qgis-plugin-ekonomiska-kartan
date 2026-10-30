@@ -7,7 +7,7 @@ from qgis.PyQt.QtGui import QIcon
 from .compat import QAction
 from .dockwidget import EkonomiskaKartanDockWidget
 
-PLUGIN_NAME = "Ekonomiska kartan"
+PLUGIN_NAME = "Geodata: Ekonomiska kartan (Lantmäteriet)"
 
 
 class EkonomiskaKartanPlugin:
