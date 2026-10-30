@@ -1,4 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-  <rect x="2" y="2" width="20" height="20" rx="4" fill="#589632"/>
-  <path d="M7 12l3.5 3.5L17 8.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36">
+  <!-- map sheet: paper with a 3x3 sheet grid, one sheet picked, download arrow -->
+  <rect x="1.5" y="1.5" width="33" height="33" rx="5" fill="#f4ecd8" stroke="#6b5a3a" stroke-width="1.5"/>
+  <path d="M2 24c5-3 8 2 13-1s8-6 12-4 6 1 7 0v13H2z" fill="#a9cfe0" opacity="0.8"/>
+  <rect x="12.5" y="5" width="11" height="11" fill="#5f9b4a" opacity="0.9"/>
+  <path d="M12.5 5v26M23.5 5v26M5 16h26M5 27h26" stroke="#6b5a3a" stroke-width="1" fill="none"/>
+  <rect x="12.5" y="5" width="11" height="11" fill="none" stroke="#2f6b3f" stroke-width="2"/>
+  <circle cx="27" cy="27" r="7" fill="#2f6b3f" stroke="#f4ecd8" stroke-width="1.5"/>
+  <path d="M27 23v7m-3-3l3 3 3-3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
