@@ -44,6 +44,7 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.iface = iface
         self.setObjectName("EkonomiskaKartanDockWidget")
         self._tasks = []  # keep Python references alive while running
+        self._search_id = 0  # bumped by every search and by clear, to drop stale list results
         self.canvas = iface.mapCanvas()
         self.tool = RectTool(self.canvas)
         self.tool.finished.connect(self._on_rect_drawn)
@@ -67,6 +68,11 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.btn_extent = QPushButton("Use current map extent")
         self.btn_extent.clicked.connect(self.search_canvas_extent)
         layout.addWidget(self.btn_extent)
+
+        self.btn_clear = QPushButton("Clear search box")
+        self.btn_clear.setToolTip("Remove the search box from the map and empty the sheet list")
+        self.btn_clear.clicked.connect(self.clear_search)
+        layout.addWidget(self.btn_clear)
 
         self.chk_grid = QCheckBox("Show sheet grid on map")
         self.chk_grid.toggled.connect(self._toggle_grid)
@@ -121,6 +127,17 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.area_band.setToGeometry(QgsGeometry.fromRect(rect), None)
         self._search(gridlayer.rect_to_3021(rect, self.canvas.mapSettings().destinationCrs()))
 
+    def clear_search(self):
+        """Remove the search box from the map and empty the sheet list."""
+        self._search_id += 1  # a listing still running must not refill the list
+        self.area_band.reset(Qgis.GeometryType.Polygon)
+        self.tree.clear()
+        self.lbl_total.setText("")
+        self.lbl_status.setText("")
+        self.btn_download.setEnabled(False)
+        self.btn_extent.setEnabled(True)
+        self.btn_draw.setEnabled(True)
+
     def cleanup(self):
         """Remove everything this widget put on the map (called on plugin unload)."""
         if self.chk_grid.isChecked():
@@ -148,9 +165,13 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.lbl_status.setText(f"Listing {len(rutor)} sheets …")
         self.btn_extent.setEnabled(False)
         self.btn_draw.setEnabled(False)
-        self._run(ListTask(rutor, self._on_listed))
+        self._search_id += 1
+        search_id = self._search_id
+        self._run(ListTask(rutor, lambda task, ok: self._on_listed(task, ok, search_id)))
 
-    def _on_listed(self, task, ok):
+    def _on_listed(self, task, ok, search_id):
+        if search_id != self._search_id:  # cleared or replaced while listing
+            return
         self.btn_extent.setEnabled(True)
         self.btn_draw.setEnabled(True)
         if not ok:
