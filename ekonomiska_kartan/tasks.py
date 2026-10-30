@@ -51,7 +51,7 @@ class DownloadTask(QgsTask):
         self.editions = list(editions)
         self.target_dir = Path(target_dir)
         self.on_done = on_done
-        self.layers = []  # (layer name, path to load, georef repaired) in download order
+        self.layers = []  # (layer name, path to load, georef status or None) in download order
         self.error = None
 
     def run(self):
@@ -75,8 +75,8 @@ class DownloadTask(QgsTask):
                                 return False
                     if "tif" in ed.files:
                         tif = self.target_dir / ed.files["tif"][0]
-                        path, fixed = georef.layer_source(tif)
-                        self.layers.append((tif.name, path, fixed))
+                        path, status = georef.layer_source(tif)
+                        self.layers.append((tif.name, path, status))
                     self.setProgress(100 * min(done, total) / total)
             finally:
                 ftp.close()

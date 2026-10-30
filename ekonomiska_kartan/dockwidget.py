@@ -25,7 +25,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
-from . import grid, gridlayer
+from . import georef, grid, gridlayer
 from .maptool import RectTool, style_band
 from .tasks import DownloadTask, ListTask
 
@@ -180,7 +180,10 @@ class EkonomiskaKartanDockWidget(QDockWidget):
 
     def _refresh_item(self, item):
         ed = self.tree.itemWidget(item, 1).currentData()
-        item.setText(2, _mb(ed.tif_size))
+        listed = georef.is_listed(ed.stem)
+        item.setText(2, _mb(ed.tif_size) + (" ⚠" if listed else ""))
+        tip = "Map larger than its grid cell; georeferencing repaired on load"
+        item.setToolTip(2, tip if listed else "")
         self._update_total()
 
     def _selected(self):
@@ -222,9 +225,10 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         root = QgsProject.instance().layerTreeRoot()
         group = root.addGroup("Ekonomiska kartan")
         crs = QgsCoordinateReferenceSystem(grid.CRS_AUTHID)
-        loaded = repaired = 0
-        for name, path, fixed in task.layers:
-            layer = QgsRasterLayer(path, name)
+        loaded, repaired, unverified = 0, 0, []
+        for name, path, status in task.layers:
+            suffix = " (unverified)" if status == georef.UNVERIFIED else ""
+            layer = QgsRasterLayer(path, name + suffix)
             if not layer.isValid():
                 continue
             if not layer.crs().isValid():
@@ -232,12 +236,19 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             QgsProject.instance().addMapLayer(layer, False)
             group.addLayer(layer)
             loaded += 1
-            repaired += fixed
+            if status:
+                repaired += 1
+            if status == georef.UNVERIFIED:
+                unverified.append(name)
         text = f"Loaded {loaded} sheets."
         if repaired:
             text += (
-                f" {repaired} had a wrong .tfw/.TAB (map squeezed into the grid cell);"
-                " georeferencing repaired in a _fixed.vrt next to the tif."
+                f" {repaired} were larger than their grid cell (wrong .tfw/.TAB); placement"
+                " repaired in a _fixed.vrt next to the tif."
+            )
+        if unverified:
+            text += (
+                f" Placement uncertain, please check against a base map: {', '.join(unverified)}."
             )
         self.lbl_status.setText(text)
 
