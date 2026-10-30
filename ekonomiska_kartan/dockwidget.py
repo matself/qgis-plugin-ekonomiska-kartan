@@ -217,6 +217,10 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             self.tree.setItemWidget(item, 1, combo)
             self._refresh_item(item)
         self.tree.blockSignals(False)
+        if not task.editions:
+            self.lbl_status.setText(self.tr("No Ekonomiska kartan sheets found in this area."))
+            self._update_total()
+            return
         missing = len(task.rutor) - len(task.editions)
         text = self.tr("Available sheets: {count}").format(count=len(task.editions))
         if missing:

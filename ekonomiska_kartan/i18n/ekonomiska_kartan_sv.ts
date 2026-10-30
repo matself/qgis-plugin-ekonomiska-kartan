@@ -4,6 +4,10 @@
 <context>
     <name>EkonomiskaKartanDockWidget</name>
     <message>
+        <source>No Ekonomiska kartan sheets found in this area.</source>
+        <translation>Inga blad ur Ekonomiska kartan hittades i området.</translation>
+    </message>
+    <message>
         <source>Add to layer list:</source>
         <translation>Lägg i lagerlistan:</translation>
     </message>

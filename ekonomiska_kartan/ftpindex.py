@@ -95,11 +95,12 @@ def latest(editions):
 
 def connect(timeout=30):
     """Anonymous FTP connection, explicit TLS when the server offers it."""
+    ftp = ftplib.FTP_TLS(HOST, timeout=timeout)
     try:
-        ftp = ftplib.FTP_TLS(HOST, timeout=timeout)
         ftp.login()
         ftp.prot_p()
     except (ftplib.error_perm, ftplib.error_reply, AttributeError):
+        ftp.close()  # do not leave the TLS attempt's socket open
         ftp = ftplib.FTP(HOST, timeout=timeout)
         ftp.login()
     return ftp
@@ -109,7 +110,14 @@ def list_block(ftp, block):
     """LIST ``/Ekonomiska_kartan/<block>`` and return {ruta: [Edition, ...]}."""
     directory = f"{ROOT}/{block}"
     lines = []
-    ftp.retrlines(f"LIST {directory}", lines.append)
+    try:
+        ftp.retrlines(f"LIST {directory}", lines.append)
+    except (ftplib.error_temp, ftplib.error_perm) as e:
+        # The server only has a directory for the 50 km blocks that hold maps (175 of 378),
+        # and answers 450/550 "No such file or directory" for the others.
+        if str(e).startswith(("450", "550")):
+            return {}
+        raise
     return editions_from_listing(lines, directory)
 
 
