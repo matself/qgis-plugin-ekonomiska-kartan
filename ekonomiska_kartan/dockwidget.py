@@ -8,7 +8,7 @@ from qgis.core import (
     QgsRasterLayer,
 )
 from qgis.gui import QgsRubberBand
-from qgis.PyQt.QtCore import Qt, QTimer
+from qgis.PyQt.QtCore import QCoreApplication, Qt, QTimer
 from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
     QCheckBox,
@@ -39,6 +39,10 @@ def _mb(size):
 class EkonomiskaKartanDockWidget(QDockWidget):
     """Pick an area, choose editions per sheet, download and load the rasters."""
 
+    def tr(self, text):
+        # fixed context: QObject.tr would use the Python class name only on some PyQt builds
+        return QCoreApplication.translate("EkonomiskaKartanDockWidget", text)
+
     def __init__(self, iface, parent=None):
         super().__init__("Geodata: Ekonomiska kartan (Lantmäteriet)", parent)
         self.iface = iface
@@ -59,27 +63,29 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         content = QWidget(self)
         layout = QVBoxLayout(content)
 
-        self.btn_draw = QPushButton("Draw search box on map")
+        self.btn_draw = QPushButton(self.tr("Draw search box on map"))
         self.btn_draw.setCheckable(True)
-        self.btn_draw.setToolTip("Drag a rectangle, or click to pick a single sheet")
+        self.btn_draw.setToolTip(self.tr("Drag a rectangle, or click to pick a single sheet"))
         self.btn_draw.toggled.connect(self._toggle_draw)
         layout.addWidget(self.btn_draw)
 
-        self.btn_extent = QPushButton("Use current map extent")
+        self.btn_extent = QPushButton(self.tr("Use current map extent"))
         self.btn_extent.clicked.connect(self.search_canvas_extent)
         layout.addWidget(self.btn_extent)
 
-        self.btn_clear = QPushButton("Clear search box")
-        self.btn_clear.setToolTip("Remove the search box from the map and empty the sheet list")
+        self.btn_clear = QPushButton(self.tr("Clear search box"))
+        self.btn_clear.setToolTip(
+            self.tr("Remove the search box from the map and empty the sheet list")
+        )
         self.btn_clear.clicked.connect(self.clear_search)
         layout.addWidget(self.btn_clear)
 
-        self.chk_grid = QCheckBox("Show sheet grid on map")
+        self.chk_grid = QCheckBox(self.tr("Show sheet grid on map"))
         self.chk_grid.toggled.connect(self._toggle_grid)
         layout.addWidget(self.chk_grid)
 
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["Sheet", "Edition", "Size"])
+        self.tree.setHeaderLabels([self.tr("Sheet"), self.tr("Edition"), self.tr("Size")])
         self.tree.itemChanged.connect(self._update_total)
         layout.addWidget(self.tree)
 
@@ -88,14 +94,14 @@ class EkonomiskaKartanDockWidget(QDockWidget):
 
         row = QHBoxLayout()
         self.dir_edit = QLineEdit()
-        self.dir_edit.setPlaceholderText("Download folder")
+        self.dir_edit.setPlaceholderText(self.tr("Download folder"))
         btn_dir = QPushButton("…")
         btn_dir.clicked.connect(self._choose_dir)
         row.addWidget(self.dir_edit)
         row.addWidget(btn_dir)
         layout.addLayout(row)
 
-        self.btn_download = QPushButton("Download and load")
+        self.btn_download = QPushButton(self.tr("Download and load"))
         self.btn_download.setEnabled(False)
         self.btn_download.clicked.connect(self.download)
         layout.addWidget(self.btn_download)
@@ -157,12 +163,13 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(), bbox.yMaximum()
         )
         if not rutor:
-            self.lbl_status.setText("The area is outside the Ekonomiska kartan grid.")
+            self.lbl_status.setText(self.tr("The area is outside the Ekonomiska kartan grid."))
             return
         if len(rutor) > 100:
-            self.lbl_status.setText(f"{len(rutor)} sheets - choose a smaller area (max 100).")
+            text = self.tr("{count} sheets - choose a smaller area (max 100).")
+            self.lbl_status.setText(text.format(count=len(rutor)))
             return
-        self.lbl_status.setText(f"Listing {len(rutor)} sheets …")
+        self.lbl_status.setText(self.tr("Listing {count} sheets …").format(count=len(rutor)))
         self.btn_extent.setEnabled(False)
         self.btn_draw.setEnabled(False)
         self._search_id += 1
@@ -175,7 +182,8 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.btn_extent.setEnabled(True)
         self.btn_draw.setEnabled(True)
         if not ok:
-            self.lbl_status.setText(f"Listing failed: {task.error or 'cancelled'}")
+            error = task.error or self.tr("cancelled")
+            self.lbl_status.setText(self.tr("Listing failed: {error}").format(error=error))
             return
         self.tree.blockSignals(True)
         self.tree.clear()
@@ -186,16 +194,16 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             item.setCheckState(0, Qt.CheckState.Checked)
             combo = QComboBox()
             for ed in reversed(eds):  # latest first = default
-                combo.addItem(ed.label + ("" if "tif" in ed.files else " (no tif)"), ed)
+                combo.addItem(ed.label + ("" if "tif" in ed.files else self.tr(" (no tif)")), ed)
             combo.currentIndexChanged.connect(lambda _i, it=item: self._refresh_item(it))
             self.tree.addTopLevelItem(item)
             self.tree.setItemWidget(item, 1, combo)
             self._refresh_item(item)
         self.tree.blockSignals(False)
         missing = len(task.rutor) - len(task.editions)
-        text = f"{len(task.editions)} sheets available"
+        text = self.tr("Available sheets: {count}").format(count=len(task.editions))
         if missing:
-            text += f", {missing} without map"
+            text += ". " + self.tr("Sheets without map: {count}").format(count=missing)
         self.lbl_status.setText(text)
         self._update_total()
 
@@ -203,7 +211,7 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         ed = self.tree.itemWidget(item, 1).currentData()
         listed = georef.is_listed(ed.stem)
         item.setText(2, _mb(ed.tif_size) + (" ⚠" if listed else ""))
-        tip = "Map larger than its grid cell; georeferencing repaired on load"
+        tip = self.tr("Map larger than its grid cell; georeferencing repaired on load")
         item.setToolTip(2, tip if listed else "")
         self._update_total()
 
@@ -220,12 +228,15 @@ class EkonomiskaKartanDockWidget(QDockWidget):
     def _update_total(self, *_):
         eds = self._selected()
         total = sum(e.tif_size or 0 for e in eds)
-        self.lbl_total.setText(f"{len(eds)} sheets selected, about {_mb(total)}")
+        text = self.tr("Selected sheets: {count}, about {size}")
+        self.lbl_total.setText(text.format(count=len(eds), size=_mb(total)))
         self.btn_download.setEnabled(bool(eds))
 
     # -- download -------------------------------------------------------
     def _choose_dir(self):
-        path = QFileDialog.getExistingDirectory(self, "Download folder", self.dir_edit.text())
+        path = QFileDialog.getExistingDirectory(
+            self, self.tr("Download folder"), self.dir_edit.text()
+        )
         if path:
             self.dir_edit.setText(path)
 
@@ -235,20 +246,21 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         if not self.dir_edit.text():
             return
         self.btn_download.setEnabled(False)
-        self.lbl_status.setText("Downloading …")
+        self.lbl_status.setText(self.tr("Downloading …"))
         self._run(DownloadTask(self._selected(), self.dir_edit.text(), self._on_downloaded))
 
     def _on_downloaded(self, task, ok):
         self.btn_download.setEnabled(True)
         if not ok:
-            self.lbl_status.setText(f"Download failed: {task.error or 'cancelled'}")
+            error = task.error or self.tr("cancelled")
+            self.lbl_status.setText(self.tr("Download failed: {error}").format(error=error))
             return
         root = QgsProject.instance().layerTreeRoot()
         group = root.addGroup("Ekonomiska kartan")
         crs = QgsCoordinateReferenceSystem(grid.CRS_AUTHID)
         loaded, repaired, unverified = 0, 0, []
         for name, path, status in task.layers:
-            suffix = " (unverified)" if status == georef.UNVERIFIED else ""
+            suffix = self.tr(" (unverified)") if status == georef.UNVERIFIED else ""
             layer = QgsRasterLayer(path, name + suffix)
             if not layer.isValid():
                 continue
@@ -261,16 +273,16 @@ class EkonomiskaKartanDockWidget(QDockWidget):
                 repaired += 1
             if status == georef.UNVERIFIED:
                 unverified.append(name)
-        text = f"Loaded {loaded} sheets."
+        text = self.tr("Loaded sheets: {count}.").format(count=loaded)
         if repaired:
-            text += (
-                f" {repaired} were larger than their grid cell (wrong .tfw/.TAB); placement"
+            text += " " + self.tr(
+                "{count} were larger than their grid cell (wrong .tfw/.TAB); placement"
                 " repaired in a _fixed.vrt next to the tif."
-            )
+            ).format(count=repaired)
         if unverified:
-            text += (
-                f" Placement uncertain, please check against a base map: {', '.join(unverified)}."
-            )
+            text += " " + self.tr(
+                "Placement uncertain, please check against a base map: {names}."
+            ).format(names=", ".join(unverified))
         self.lbl_status.setText(text)
 
     def _run(self, task):

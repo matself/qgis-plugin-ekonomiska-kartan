@@ -3,11 +3,13 @@ import configparser
 import zipfile
 from pathlib import Path
 
+from compile_translations import compile_ts
+
 MODULE = "ekonomiska_kartan"
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN_DIR = ROOT / MODULE
 SKIP_DIRS = {"__pycache__", ".git"}
-SKIP_SUFFIXES = {".pyc", ".ts"}
+SKIP_SUFFIXES = {".pyc", ".ts", ".qm"}  # .qm is compiled from the .ts files below
 
 
 def read_metadata():
@@ -33,6 +35,8 @@ def main():
             if path.is_dir() or SKIP_DIRS & set(rel.parts) or path.suffix in SKIP_SUFFIXES:
                 continue
             zf.write(path, rel.as_posix())
+        for ts in sorted((PLUGIN_DIR / "i18n").glob("*.ts")):
+            zf.writestr(f"{MODULE}/i18n/{ts.stem}.qm", compile_ts(ts))
         license_file = ROOT / "LICENSE"
         if license_file.exists():
             zf.write(license_file, f"{MODULE}/LICENSE")

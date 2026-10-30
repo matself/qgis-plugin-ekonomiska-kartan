@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from qgis.core import QgsTask
+from qgis.PyQt.QtCore import QCoreApplication
 
 from . import ftpindex, georef, grid
 
@@ -10,7 +11,10 @@ class ListTask(QgsTask):
     """LIST each needed block directory and collect the editions per sheet."""
 
     def __init__(self, rutor, on_done):
-        super().__init__("Ekonomiska kartan: list available sheets", QgsTask.Flag.CanCancel)
+        super().__init__(
+            QCoreApplication.translate("tasks", "Ekonomiska kartan: list available sheets"),
+            QgsTask.Flag.CanCancel,
+        )
         self.rutor = list(rutor)
         self.on_done = on_done
         self.editions = {}
@@ -47,7 +51,10 @@ class DownloadTask(QgsTask):
     """Download .tif/.tfw/.TAB for the chosen editions; skips existing files."""
 
     def __init__(self, editions, target_dir, on_done):
-        super().__init__("Ekonomiska kartan: download", QgsTask.Flag.CanCancel)
+        super().__init__(
+            QCoreApplication.translate("tasks", "Ekonomiska kartan: download"),
+            QgsTask.Flag.CanCancel,
+        )
         self.editions = list(editions)
         self.target_dir = Path(target_dir)
         self.on_done = on_done
