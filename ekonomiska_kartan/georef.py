@@ -25,7 +25,7 @@ from functools import lru_cache
 from itertools import accumulate
 from pathlib import Path
 
-from . import grid
+from . import ftpindex, grid
 
 PIXEL = 1.0  # metres, nominal scan resolution of Ekonomiska kartan
 TOLERANCE = 1e-3
@@ -159,6 +159,9 @@ def layer_source(tif_path, cell=CELL_PX):
     MEASURED or UNVERIFIED for a repaired ``_fixed.vrt``.
     """
     tif_path = Path(tif_path)
+    parsed = ftpindex.parse_filename(tif_path.name)
+    if parsed and len(ftpindex.span_cells(parsed[0], ftpindex.span_of(tif_path.name))) > 1:
+        return str(tif_path), None  # sheet over several cells (Ven, Hanö): placed by hand, as is
     tfw_path = tif_path.with_suffix(".tfw")
     tab_path = tif_path.with_suffix(".TAB")
     if not tab_path.exists():

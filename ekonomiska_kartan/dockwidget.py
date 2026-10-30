@@ -211,7 +211,7 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.tree.clear()
         for ruta in sorted(task.editions):
             eds = task.editions[ruta]
-            item = QTreeWidgetItem([ruta, "", ""])
+            item = QTreeWidgetItem([eds[0].sheet, "", ""])
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(0, Qt.CheckState.Checked)
             combo = QComboBox()
@@ -226,7 +226,7 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             self.lbl_status.setText(self.tr("No Ekonomiska kartan sheets found in this area."))
             self._update_total()
             return
-        missing = len(task.rutor) - len(task.editions)
+        missing = len(set(task.rutor) - task.covered)
         text = self.tr("Available sheets: {count}").format(count=len(task.editions))
         if missing:
             text += ". " + self.tr("Sheets without map: {count}").format(count=missing)

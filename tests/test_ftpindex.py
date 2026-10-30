@@ -61,3 +61,41 @@ def test_missing_block_directory_is_empty():
 def test_other_ftp_errors_still_raise():
     with pytest.raises(ftplib.error_temp):
         ftpindex.list_block(FakeFtp(ftplib.error_temp("421 Too many connections")), "4d")
+
+
+COMPOSITE = [
+    "-rw-r--r--   1 ftp ftp  55103277 Jan  1  2020 133_3c0a-b71_0_b2.tif",
+    "-rw-r--r--   1 ftp ftp        91 Jan  1  2020 133_3c0a-b71_0_b2.tfw",
+    "-rw-r--r--   1 ftp ftp       410 Jan  1  2020 133_3c0a-b71_0_b2.TAB",
+    "-rw-r--r--   1 ftp ftp  52938991 Jan  1  2020 133_3e1h-i2h-i73_0_b2.tif",
+    "-rw-r--r--   1 ftp ftp  50000000 Jan  1  2020 133_3c1a42_0_b2.tif",
+]
+
+
+def test_span_cells():
+    assert ftpindex.span_cells("3g6h", "") == ("3g6h",)
+    assert ftpindex.span_cells("3c0a", "-b") == ("3c0a", "3c0b")
+    assert ftpindex.span_cells("3e1h", "-i2h-i") == ("3e1h", "3e1i", "3e2h", "3e2i")
+
+
+def test_composite_sheets_are_parsed():
+    # Ven and Hanö: manually georeferenced sheets that cover several grid cells
+    assert ftpindex.parse_filename("133_3c0a-b71_0_b2.tif") == (
+        "3c0a", 71, "133_3c0a-b71_0_b2", "tif",
+    )
+    assert ftpindex.parse_filename("133_3e1h-i2h-i73_0_b2.TAB")[1] == 73
+    res = ftpindex.editions_from_listing(COMPOSITE, "/Ekonomiska_kartan/3c")
+    ed = res["3c0a"][0]
+    assert ed.sheet == "3c0a-b" and ed.covers == ("3c0a", "3c0b") and ed.year == 71
+    assert set(ed.files) == {"tif", "tfw", "tab"}
+    assert res["3e1h"][0].sheet == "3e1h-i2h-i"
+    assert res["3c1a"][0].covers == ("3c1a",)  # an ordinary sheet next to it
+
+
+def test_search_finds_a_composite_sheet_from_any_of_its_cells():
+    by_ruta = ftpindex.editions_from_listing(COMPOSITE, "/Ekonomiska_kartan/3c")
+    chosen, covered = ftpindex.select_editions(by_ruta, {"3c0b"})  # only the second cell
+    assert list(chosen) == ["3c0a"] and covered == {"3c0b"}
+    chosen, covered = ftpindex.select_editions(by_ruta, {"3c0a", "3c0b", "3c1a", "3c1b"})
+    assert set(chosen) == {"3c0a", "3c1a"}  # listed once, under its first cell
+    assert covered == {"3c0a", "3c0b", "3c1a"}  # 3c1b has no map

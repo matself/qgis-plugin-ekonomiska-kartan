@@ -12,6 +12,8 @@ Lantmäteriet publishes as open data.
 - The 5x5 km sheet grid (EPSG:3021, RT90 2.5 gon V) is shown on the map and switches to
   50 km blocks when zoomed out.
 - Sheets with several editions (years) get an edition selector; the latest is the default.
+- Sheets that cover several grid cells (the islands Ven and Hanö, `3c0a-b` and `3e1h-i2h-i`) are
+  listed once and loaded with their own georeferencing.
 - Downloads `.tif/.tfw/.TAB` anonymously from `download-opendata.lantmateriet.se` in a
   background task and loads the rasters into a layer group.
 - About 1.5 % of the editions (187) are scanned larger than their grid cell: Lantmäteriet

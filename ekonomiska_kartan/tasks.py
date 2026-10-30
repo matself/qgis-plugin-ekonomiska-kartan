@@ -17,7 +17,8 @@ class ListTask(QgsTask):
         )
         self.rutor = list(rutor)
         self.on_done = on_done
-        self.editions = {}
+        self.editions = {}  # first cell -> [Edition]; a sheet over several cells appears once
+        self.covered = set()  # the searched cells that have a map
         self.error = None
 
     def run(self):
@@ -29,9 +30,13 @@ class ListTask(QgsTask):
                 for i, block in enumerate(blocks):
                     if self.isCanceled():
                         return False
-                    for ruta, eds in ftpindex.list_block(ftp, block).items():
-                        if ruta in wanted:
-                            self.editions[ruta] = eds
+                    chosen, covered = ftpindex.select_editions(
+                        ftpindex.list_block(ftp, block), wanted
+                    )
+                    for ruta, eds in chosen.items():
+                        known = self.editions.setdefault(ruta, [])
+                        known.extend(e for e in eds if e.stem not in {k.stem for k in known})
+                    self.covered |= covered
                     self.setProgress(100 * (i + 1) / len(blocks))
             finally:
                 ftp.close()

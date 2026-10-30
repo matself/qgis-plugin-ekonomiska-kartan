@@ -116,3 +116,14 @@ def test_layer_source_measures_and_keeps_the_whole_scan(tmp_path):
     # 1 m/px, the cell's north-west corner (1000, 5000) lies 60 px into the scan
     assert out.GetGeoTransform()[:2] == pytest.approx((940.0, 1.0))
     assert out.GetGeoTransform()[3] == pytest.approx(5000.0)
+
+
+def test_composite_sheets_are_not_repaired(tmp_path):
+    # Ven: 5000 x 5000 px placed by hand; a pixel size a little off 1 m must not trigger repair
+    stem = "133_3c0a-b71_0_b2"
+    (tmp_path / f"{stem}.tif").write_bytes(b"")
+    tfw = "1.0004529285\n0\n0\n-1.0041716082\n1303003.84\n6205008.9\n"
+    (tmp_path / f"{stem}.tfw").write_text(tfw)
+    (tmp_path / f"{stem}.TAB").write_text(TAB_BAD)
+    tif = tmp_path / f"{stem}.tif"
+    assert georef.layer_source(tif) == (str(tif), None)

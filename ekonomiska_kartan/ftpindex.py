@@ -17,7 +17,13 @@ FILE_RE = re.compile(
     r"^133_(?P<ruta>\d+[a-z]\d[a-z])(?P<tail>[^_]*)_0_b2\.(?P<ext>tif|tfw|tab)$",
     re.IGNORECASE,
 )
-TAIL_RE = re.compile(r"^(?P<year>\d{2})?(?P<suffix>-\d+)?$")
+# After the first sheet name: for a sheet that covers several grid cells (the islands Ven and
+# Hanö, georeferenced by hand) the span, e.g. "-b" (3c0a-b = 3c0a and 3c0b) or "-i2h-i"
+# (3e1h-i2h-i = 3e1h, 3e1i, 3e2h and 3e2i), then the year and an optional "-n".
+TAIL_RE = re.compile(
+    r"^(?P<span>(?:-[a-z])?(?:\d[a-z](?:-[a-z])?)*)(?P<year>\d{2})?(?P<suffix>-\d+)?$"
+)
+ROW_RE = re.compile(r"(\d)([a-z])(?:-([a-z]))?")
 
 
 @dataclass
@@ -29,6 +35,17 @@ class Edition:
     stem: str  # filename without extension, e.g. 133_10a0g79_0_b2
     directory: str
     files: dict = field(default_factory=dict)  # ext (lower) -> (filename, size or None)
+    span: str = ""  # e.g. "-b" in 3c0a-b: the sheet covers more than its first grid cell
+    covers: tuple = ()  # every grid cell the sheet covers, first one is ``ruta``
+
+    def __post_init__(self):
+        if not self.covers:
+            self.covers = span_cells(self.ruta, self.span)
+
+    @property
+    def sheet(self):
+        """Name as written in the file name, e.g. ``3c0a-b`` (just ``ruta`` for most sheets)."""
+        return self.ruta + self.span
 
     @property
     def tif_size(self):
@@ -49,17 +66,44 @@ class Edition:
         )
 
 
-def parse_filename(name):
-    """Return (ruta, year, stem, ext) or None if the name is not a map file."""
+def span_cells(ruta, span):
+    """Grid cells a sheet covers: its first cell plus the span written after it.
+
+    ``3c0a`` + ``-b`` -> 3c0a, 3c0b; ``3e1h`` + ``-i2h-i`` -> 3e1h, 3e1i, 3e2h, 3e2i.
+    """
+    block, digit, col = ruta[:-2], ruta[-2], ruta[-1]
+    last = col
+    if span.startswith("-"):
+        last, span = span[1], span[2:]
+    rows = [(digit, col, last)] + [(d, a, b or a) for d, a, b in ROW_RE.findall(span)]
+    return tuple(
+        f"{block}{d}{chr(c)}" for d, first, end in rows for c in range(ord(first), ord(end) + 1)
+    )
+
+
+def _parse(name):
     m = FILE_RE.match(name)
     if m is None:
         return None
     t = TAIL_RE.match(m.group("tail"))
-    if t is None:
+    return (m, t) if t is not None else None
+
+
+def parse_filename(name):
+    """Return (ruta, year, stem, ext) or None if the name is not a map file."""
+    parsed = _parse(name)
+    if parsed is None:
         return None
+    m, t = parsed
     year = int(t.group("year")) if t.group("year") else -1
     stem = name.rsplit(".", 1)[0]
     return m.group("ruta").lower(), year, stem, m.group("ext").lower()
+
+
+def span_of(name):
+    """The span after the first sheet name (``-b``), empty for an ordinary sheet."""
+    parsed = _parse(name)
+    return parsed[1].group("span") if parsed else ""
 
 
 def parse_list_line(line):
@@ -79,7 +123,7 @@ def editions_from_listing(lines, directory):
         if parsed is None:
             continue
         ruta, year, stem, ext = parsed
-        ed = by_stem.setdefault(stem, Edition(ruta, year, stem, directory))
+        ed = by_stem.setdefault(stem, Edition(ruta, year, stem, directory, span=span_of(name)))
         ed.files[ext] = (name, size)
     result = {}
     for ed in by_stem.values():
@@ -87,6 +131,25 @@ def editions_from_listing(lines, directory):
     for eds in result.values():
         eds.sort(key=lambda e: e.sort_key)
     return result
+
+
+def select_editions(by_ruta, wanted):
+    """The editions that cover any of the ``wanted`` cells.
+
+    Returns ({first cell: [Edition, ...]}, set of wanted cells that have a map). A sheet that
+    covers several cells is listed once, under its first cell.
+    """
+    wanted = set(wanted)
+    chosen, covered = {}, set()
+    for eds in by_ruta.values():
+        for ed in eds:
+            hit = wanted.intersection(ed.covers)
+            if hit:
+                chosen.setdefault(ed.ruta, []).append(ed)
+                covered |= hit
+    for eds in chosen.values():
+        eds.sort(key=lambda e: e.sort_key)
+    return chosen, covered
 
 
 def latest(editions):
