@@ -4,6 +4,22 @@
 <context>
     <name>EkonomiskaKartanDockWidget</name>
     <message>
+        <source>Select all</source>
+        <translation>Välj alla</translation>
+    </message>
+    <message>
+        <source>Select none</source>
+        <translation>Välj inga</translation>
+    </message>
+    <message>
+        <source>Pick sheets on map</source>
+        <translation>Välj blad i kartan</translation>
+    </message>
+    <message>
+        <source>Click a sheet to select or deselect it. Drag a rectangle to select several; hold Shift to add to the selection or Ctrl to remove from it.</source>
+        <translation>Klicka på ett blad för att välja eller välja bort det. Dra en rektangel för att välja flera; håll ned Skift för att lägga till i urvalet eller Ctrl för att ta bort ur det.</translation>
+    </message>
+    <message>
         <source>Large download</source>
         <translation>Stor nedladdning</translation>
     </message>
@@ -55,11 +71,6 @@
         <location filename="../dockwidget.py" line="73"/>
         <source>Remove the search box from the map and empty the sheet list</source>
         <translation>Ta bort sökrutan från kartan och töm bladlistan</translation>
-    </message>
-    <message>
-        <location filename="../dockwidget.py" line="79"/>
-        <source>Show sheet grid on map</source>
-        <translation>Visa bladindelning på kartan</translation>
     </message>
     <message>
         <location filename="../dockwidget.py" line="84"/>

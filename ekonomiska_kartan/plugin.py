@@ -61,3 +61,5 @@ class EkonomiskaKartanPlugin:
             self.dock.show()
             return
         self.dock.setVisible(not self.dock.isVisible())
+        if self.dock.isVisible():
+            self.dock.ensure_grid()

@@ -7,12 +7,12 @@ from qgis.core import (
     QgsLayerTreeLayer,
     QgsProject,
     QgsRasterLayer,
+    QgsRectangle,
 )
 from qgis.gui import QgsRubberBand
 from qgis.PyQt.QtCore import QCoreApplication, QSettings, Qt, QTimer
 from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QDockWidget,
     QFileDialog,
@@ -58,8 +58,22 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.tool = RectTool(self.canvas)
         self.tool.finished.connect(self._on_rect_drawn)
         self.tool.deactivated.connect(lambda: self.btn_draw.setChecked(False))
+        self.pick_tool = RectTool(self.canvas, QColor(30, 150, 60))
+        self.pick_tool.finished.connect(self._on_picked)
+        self.pick_tool.deactivated.connect(lambda: self.btn_pick.setChecked(False))
         self.area_band = QgsRubberBand(self.canvas, Qgis.GeometryType.Polygon)
         style_band(self.area_band, QColor(220, 30, 30), QColor(220, 30, 30, 30))
+        # sheets in the list: grey = listed, green = ticked for download, orange = current row
+        self.bands = {
+            "listed": QgsRubberBand(self.canvas, Qgis.GeometryType.Polygon),
+            "ticked": QgsRubberBand(self.canvas, Qgis.GeometryType.Polygon),
+            "current": QgsRubberBand(self.canvas, Qgis.GeometryType.Polygon),
+        }
+        style_band(self.bands["listed"], QColor(90, 90, 90, 170), QColor(90, 90, 90, 25), 1)
+        style_band(self.bands["ticked"], QColor(30, 150, 60), QColor(30, 150, 60, 90))
+        style_band(self.bands["current"], QColor(255, 150, 0), QColor(255, 150, 0, 0), 4)
+        self.canvas.destinationCrsChanged.connect(self._update_highlight)
+        self._grid_following = False  # extentsChanged is connected to the grid timer
         self._grid_timer = QTimer(self)
         self._grid_timer.setSingleShot(True)
         self._grid_timer.setInterval(250)
@@ -85,19 +99,39 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.btn_clear.clicked.connect(self.clear_search)
         layout.addWidget(self.btn_clear)
 
-        self.chk_grid = QCheckBox(self.tr("Show sheet grid on map"))
-        self.chk_grid.toggled.connect(self._toggle_grid)
-        layout.addWidget(self.chk_grid)
+        self.btn_pick = QPushButton(self.tr("Pick sheets on map"))
+        self.btn_pick.setCheckable(True)
+        self.btn_pick.setEnabled(False)  # needs a sheet list
+        self.btn_pick.setToolTip(
+            self.tr(
+                "Click a sheet to select or deselect it. Drag a rectangle to select several;"
+                " hold Shift to add to the selection or Ctrl to remove from it."
+            )
+        )
+        self.btn_pick.toggled.connect(self._toggle_pick)
+        layout.addWidget(self.btn_pick)
 
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels([self.tr("Sheet"), self.tr("Edition"), self.tr("Size")])
         self.tree.itemChanged.connect(self._update_total)
+        self.tree.itemChanged.connect(self._update_highlight)
+        self.tree.currentItemChanged.connect(self._update_highlight)
         self.tree.setMinimumHeight(90)
         self.tree.setMaximumHeight(190)  # about 7 rows, then it scrolls; saves screen space
         layout.addWidget(self.tree)
 
+        row = QHBoxLayout()
         self.lbl_total = QLabel("")
-        layout.addWidget(self.lbl_total)
+        row.addWidget(self.lbl_total, 1)
+        self.btn_all = QPushButton(self.tr("Select all"))
+        self.btn_none = QPushButton(self.tr("Select none"))
+        self.btn_all.clicked.connect(lambda: self._set_all(Qt.CheckState.Checked))
+        self.btn_none.clicked.connect(lambda: self._set_all(Qt.CheckState.Unchecked))
+        self.btn_all.setEnabled(False)  # both need a sheet list
+        self.btn_none.setEnabled(False)
+        row.addWidget(self.btn_all)
+        row.addWidget(self.btn_none)
+        layout.addLayout(row)
 
         row = QHBoxLayout()
         self.dir_edit = QLineEdit()
@@ -132,6 +166,8 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         layout.addWidget(self.lbl_status)
         layout.addStretch(1)
         self.setWidget(content)
+        QgsProject.instance().readProject.connect(self.ensure_grid)
+        self.ensure_grid()
 
     # -- map: grid and search box ---------------------------------------
     def _toggle_draw(self, on):
@@ -140,16 +176,35 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         elif self.canvas.mapTool() is self.tool:
             self.canvas.unsetMapTool(self.tool)
 
-    def _toggle_grid(self, on):
+    def _toggle_pick(self, on):
         if on:
+            self.canvas.setMapTool(self.pick_tool)
+        elif self.canvas.mapTool() is self.pick_tool:
+            self.canvas.unsetMapTool(self.pick_tool)
+
+    def ensure_grid(self, *_):
+        """Add the sheet grid layer to the project and keep it following the map.
+
+        Called when the plugin is opened and when another project is loaded. The layer is
+        never removed from here (only on unload): the user hides or removes it in the layer
+        list, and a removed layer is not added back until the next call.
+        """
+        if not self._grid_following:
             self.canvas.extentsChanged.connect(self._grid_timer.start)
-            self._update_grid()
-        else:
-            self.canvas.extentsChanged.disconnect(self._grid_timer.start)
-            gridlayer.remove_layer()
+            self._grid_following = True
+        gridlayer.update_layer(gridlayer.canvas_bbox_3021(self.canvas))
 
     def _update_grid(self):
-        gridlayer.update_layer(gridlayer.canvas_bbox_3021(self.canvas))
+        """Timer after the map moved: refresh the grid layer, unless the user removed it."""
+        if gridlayer.get_layer() is None:
+            self._stop_following_grid()
+        else:
+            gridlayer.update_layer(gridlayer.canvas_bbox_3021(self.canvas))
+
+    def _stop_following_grid(self):
+        if self._grid_following:
+            self.canvas.extentsChanged.disconnect(self._grid_timer.start)
+            self._grid_following = False
 
     def _on_rect_drawn(self, rect):
         self.area_band.setToGeometry(QgsGeometry.fromRect(rect), None)
@@ -159,7 +214,13 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         """Remove the search box from the map and empty the sheet list."""
         self._search_id += 1  # a listing still running must not refill the list
         self.area_band.reset(Qgis.GeometryType.Polygon)
+        self.btn_pick.setChecked(False)
+        self.btn_pick.setEnabled(False)
+        self.tree.blockSignals(True)
         self.tree.clear()
+        self.tree.blockSignals(False)
+        self._update_highlight()
+        self._update_total()
         self.lbl_total.setText("")
         self.lbl_status.setText("")
         self.btn_download.setEnabled(False)
@@ -168,11 +229,93 @@ class EkonomiskaKartanDockWidget(QDockWidget):
 
     def cleanup(self):
         """Remove everything this widget put on the map (called on plugin unload)."""
-        if self.chk_grid.isChecked():
-            self.chk_grid.setChecked(False)
+        self._stop_following_grid()
+        QgsProject.instance().readProject.disconnect(self.ensure_grid)
+        gridlayer.remove_layer()
+        self.canvas.destinationCrsChanged.disconnect(self._update_highlight)
         self.canvas.unsetMapTool(self.tool)
+        self.canvas.unsetMapTool(self.pick_tool)
         self.tool.cleanup()
+        self.pick_tool.cleanup()
         self.canvas.scene().removeItem(self.area_band)
+        for band in self.bands.values():
+            self.canvas.scene().removeItem(band)
+
+    # -- map: sheets in the list ----------------------------------------
+    def _items(self):
+        return [self.tree.topLevelItem(i) for i in range(self.tree.topLevelItemCount())]
+
+    def _edition(self, item):
+        return self.tree.itemWidget(item, 1).currentData()
+
+    def _update_highlight(self, *_):
+        """Show the listed sheets on the map: all grey, ticked ones green, current row orange."""
+        items = self._items()
+        cells = {
+            "listed": {c for it in items for c in self._edition(it).covers},
+            "ticked": {c for e in self._selected() for c in e.covers},
+            "current": set(),
+        }
+        current = self.tree.currentItem()
+        if current is not None and self.tree.indexOfTopLevelItem(current) >= 0:
+            cells["current"] = set(self._edition(current).covers)
+        crs = self.canvas.mapSettings().destinationCrs()
+        for key, band in self.bands.items():
+            geometry = gridlayer.cells_geometry(cells[key], crs)
+            if geometry is None:
+                band.reset(Qgis.GeometryType.Polygon)
+            else:
+                band.setToGeometry(geometry, None)
+
+    def _on_picked(self, rect):
+        """Map click or drag with the pick tool: tick/untick the listed sheets under it.
+
+        A click toggles the sheet (Shift: tick, Ctrl: untick); a drag replaces the selection
+        (Shift: add to it, Ctrl: remove from it).
+        """
+        click = max(rect.width(), rect.height()) < 4 * self.canvas.mapUnitsPerPixel()
+        if click:
+            centre = rect.center()
+            rect = QgsRectangle(centre, centre)
+        bbox = gridlayer.rect_to_3021(rect, self.canvas.mapSettings().destinationCrs())
+        under = set(
+            grid.rutor_in_bbox(
+                bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(), bbox.yMaximum()
+            )
+        )
+        hit = [it for it in self._items() if under.intersection(self._edition(it).covers)]
+        if not hit and click:
+            return
+        mods = self.pick_tool.modifiers
+        add = bool(mods & Qt.KeyboardModifier.ShiftModifier)
+        remove = bool(mods & Qt.KeyboardModifier.ControlModifier)
+        ticked, unticked = Qt.CheckState.Checked, Qt.CheckState.Unchecked
+        self.tree.blockSignals(True)
+        for item in self._items():
+            if item in hit:
+                if remove:
+                    state = unticked
+                elif add:
+                    state = ticked
+                elif click:
+                    state = unticked if item.checkState(0) == ticked else ticked
+                else:
+                    state = ticked
+            elif not (add or remove or click):
+                state = unticked  # a plain drag replaces the selection
+            else:
+                continue
+            item.setCheckState(0, state)
+        self.tree.blockSignals(False)
+        if hit and click:
+            self.tree.setCurrentItem(hit[0])
+            self.tree.scrollToItem(hit[0])
+        self._update_total()
+        self._update_highlight()
+
+    def _on_edition_changed(self, item):
+        self._refresh_item(item)
+        self._update_highlight()
 
     # -- search ---------------------------------------------------------
     def search_canvas_extent(self):
@@ -217,11 +360,13 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             combo = QComboBox()
             for ed in reversed(eds):  # latest first = default
                 combo.addItem(ed.label + ("" if "tif" in ed.files else self.tr(" (no tif)")), ed)
-            combo.currentIndexChanged.connect(lambda _i, it=item: self._refresh_item(it))
+            combo.currentIndexChanged.connect(lambda _i, it=item: self._on_edition_changed(it))
             self.tree.addTopLevelItem(item)
             self.tree.setItemWidget(item, 1, combo)
             self._refresh_item(item)
         self.tree.blockSignals(False)
+        self.btn_pick.setEnabled(bool(task.editions))
+        self._update_highlight()
         if not task.editions:
             self.lbl_status.setText(self.tr("No Ekonomiska kartan sheets found in this area."))
             self._update_total()
@@ -257,6 +402,18 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         text = self.tr("Selected sheets: {count}, about {size}")
         self.lbl_total.setText(text.format(count=len(eds), size=_mb(total)))
         self.btn_download.setEnabled(bool(eds))
+        listed = self.tree.topLevelItemCount() > 0
+        self.btn_all.setEnabled(listed)
+        self.btn_none.setEnabled(listed)
+
+    def _set_all(self, state):
+        """Tick or untick every sheet in the list."""
+        self.tree.blockSignals(True)
+        for item in self._items():
+            item.setCheckState(0, state)
+        self.tree.blockSignals(False)
+        self._update_total()
+        self._update_highlight()
 
     # -- download -------------------------------------------------------
     def _choose_dir(self):

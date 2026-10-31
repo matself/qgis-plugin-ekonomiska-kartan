@@ -47,6 +47,18 @@ def rect_to_3021(rect, src_crs):
     return QgsCoordinateTransform(src_crs, dst, QgsProject.instance()).transformBoundingBox(rect)
 
 
+def cells_geometry(names, dst_crs):
+    """The sheets ``names`` (grid cells) as one multipolygon in ``dst_crs``, None if empty."""
+    if not names:
+        return None
+    geometry = QgsGeometry.collectGeometry(
+        [QgsGeometry.fromRect(QgsRectangle(*grid.ruta_bounds(n))) for n in sorted(names)]
+    )
+    src = QgsCoordinateReferenceSystem(grid.CRS_AUTHID)
+    geometry.transform(QgsCoordinateTransform(src, dst_crs, QgsProject.instance()))
+    return geometry
+
+
 def get_layer():
     layers = QgsProject.instance().mapLayersByName(LAYER_NAME)
     return layers[0] if layers else None
@@ -66,6 +78,7 @@ def update_layer(bbox):
             f"Polygon?crs={grid.CRS_AUTHID}&field=name:string(10)", LAYER_NAME, "memory"
         )
         _style(layer)
+        layer.setCustomProperty("skipMemoryLayersCheck", 1)  # no "scratch layer" warning on close
         QgsProject.instance().addMapLayer(layer)
 
     args = (bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(), bbox.yMaximum())

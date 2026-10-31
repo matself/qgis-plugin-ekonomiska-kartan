@@ -9,8 +9,13 @@ QGIS plugin to find, download and load the scanned *Ekonomiska kartan* sheets th
 Lantmäteriet publishes as open data.
 
 - Pick an area: draw a search box on the map or use the current map extent.
-- The 5x5 km sheet grid (EPSG:3021, RT90 2.5 gon V) is shown on the map and switches to
-  50 km blocks when zoomed out.
+- The 5x5 km sheet grid (EPSG:3021, RT90 2.5 gon V) can be added to the map as a layer; it
+  follows the map and switches to 50 km blocks when zoomed out. Hide or remove it in the layer
+  list.
+- The sheets found are outlined on the map: grey when listed, green when ticked for download,
+  with a thick orange outline for the row you have selected in the list.
+- "Pick sheets on map" ticks and unticks the listed sheets from the map: click a sheet to toggle
+  it, drag a rectangle to select several (Shift adds, Ctrl removes).
 - Sheets with several editions (years) get an edition selector; the latest is the default.
 - Sheets that cover several grid cells (the islands Ven and Hanö, `3c0a-b` and `3e1h-i2h-i`) are
   listed once and loaded with their own georeferencing.
