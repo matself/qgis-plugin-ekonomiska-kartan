@@ -12,6 +12,14 @@
         <translation>Välj inga</translation>
     </message>
     <message>
+        <source> (empty)</source>
+        <translation> (tom)</translation>
+    </message>
+    <message>
+        <source>Empty image in Lantmäteriet's data (the file holds no picture): {names}.</source>
+        <translation>Tom bild i Lantmäteriets data (filen innehåller ingen bild): {names}.</translation>
+    </message>
+    <message>
         <source>Pick sheets on map</source>
         <translation>Välj blad i kartan</translation>
     </message>

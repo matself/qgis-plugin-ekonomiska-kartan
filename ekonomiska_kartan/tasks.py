@@ -4,7 +4,7 @@ from pathlib import Path
 from qgis.core import QgsTask
 from qgis.PyQt.QtCore import QCoreApplication
 
-from . import ftpindex, georef, grid
+from . import ftpindex, georef, grid, tiffcheck
 
 
 class ListTask(QgsTask):
@@ -64,6 +64,7 @@ class DownloadTask(QgsTask):
         self.target_dir = Path(target_dir)
         self.on_done = on_done
         self.layers = []  # (layer name, path to load, georef status or None) in download order
+        self.empty = set()  # layer names of tifs that hold no image data
         self.error = None
 
     def run(self):
@@ -89,6 +90,8 @@ class DownloadTask(QgsTask):
                         tif = self.target_dir / ed.files["tif"][0]
                         path, status = georef.layer_source(tif)
                         self.layers.append((tif.name, path, status))
+                        if tiffcheck.is_empty(tif):
+                            self.empty.add(tif.name)
                     self.setProgress(100 * min(done, total) / total)
             finally:
                 ftp.close()

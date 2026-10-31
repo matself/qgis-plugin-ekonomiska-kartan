@@ -46,6 +46,10 @@ that grid is covered. Left out on purpose:
   have one.
 - **`Bladindelningskartor`**: PDF overview maps of the sheet division, not map sheets.
 
+Known errors in the source data: sheet `3d9e` (1976) is a tif with an empty tile table, so it
+shows as plain black although the file is 43 MB. The plugin still loads such a sheet but names
+the layer "(empty)" and says so in the status text.
+
 ## Install
 
 Download `ekonomiska_kartan-0.1.0-experimental.zip` from the

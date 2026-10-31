@@ -458,6 +458,8 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         loaded, repaired, unverified = 0, 0, []
         for name, path, status in task.layers:
             suffix = self.tr(" (unverified)") if status == georef.UNVERIFIED else ""
+            if name in task.empty:
+                suffix += self.tr(" (empty)")
             layer = QgsRasterLayer(path, name + suffix)
             if not layer.isValid():
                 continue
@@ -480,6 +482,10 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             text += " " + self.tr(
                 "Placement uncertain, please check against a base map: {names}."
             ).format(names=", ".join(unverified))
+        if task.empty:
+            text += " " + self.tr(
+                "Empty image in Lantmäteriet's data (the file holds no picture): {names}."
+            ).format(names=", ".join(sorted(task.empty)))
         self.lbl_status.setText(text)
 
     def _new_group(self, name):
