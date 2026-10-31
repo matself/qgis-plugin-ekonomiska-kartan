@@ -46,9 +46,23 @@ that grid is covered. Left out on purpose:
   have one.
 - **`Bladindelningskartor`**: PDF overview maps of the sheet division, not map sheets.
 
-Known errors in the source data: sheet `3d9e` (1976) is a tif with an empty tile table, so it
-shows as plain black although the file is 43 MB. The plugin still loads such a sheet but names
-the layer "(empty)" and says so in the status text.
+## Quality of the source data
+
+The maps were scanned and registered by Lantmäteriet long ago, and neither the files nor the
+server directories are free of errors. The plugin handles the systematic cases it has come
+across (oversized sheets, sheets that cover several cells, sheets filed in a neighbouring
+directory) and flags a sheet whose image is empty, but it does not try to find and correct every
+defect. Expect to meet others, for example:
+
+- sheets or editions that are missing, or placed wrongly;
+- file names that break the naming pattern;
+- images that are blank, black or damaged (sheet `3d9e`, 1976, is a tif with an empty tile
+  table: it shows as plain black although the file is 43 MB, and is loaded as "(empty)");
+- georeferencing that is off by a few pixels or more;
+- sheets that only exist as scans without coordinates.
+
+Check what you load against a base map. If you find a defect that affects many sheets, please
+open an issue.
 
 ## Install
 
