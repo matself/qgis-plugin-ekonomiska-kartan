@@ -5,13 +5,16 @@
 > **Experimental pre-release (0.1.0).** Expect rough edges; please report problems in the
 > [issue tracker](https://github.com/matself/qgis-plugin-ekonomiska-kartan/issues).
 
+*Svensk steg-för-steg-handledning: [HANDLEDNING.md](HANDLEDNING.md).*
+
 QGIS plugin to find, download and load the scanned *Ekonomiska kartan* sheets that
 Lantmäteriet publishes as open data.
 
 - Pick an area: draw a search box on the map or use the current map extent.
 - The 5x5 km sheet grid (EPSG:3021, RT90 2.5 gon V) can be added to the map as a layer; it
   follows the map and switches to 50 km blocks when zoomed out. Hide or remove it in the layer
-  list.
+  list. **The grid is synthetic: computed from the sheet naming scheme, not Lantmäteriet's real
+  sheet extents** (see below). It is a search aid, not a map of where the sheets really lie.
 - The sheets found are outlined on the map: grey when listed, green when ticked for download,
   with a thick orange outline for the row you have selected in the list.
 - "Pick sheets on map" ticks and unticks the listed sheets from the map: click a sheet to toggle
@@ -33,8 +36,10 @@ Lantmäteriet publishes as open data.
 ## Not covered
 
 The plugin finds sheets from a synthetic 5x5 km grid (EPSG:3021) that it computes itself, and
-loads the `.tif/.tfw/.TAB` of each sheet. That is why only data with a georeferenced sheet in
-that grid is covered. Left out on purpose:
+loads the `.tif/.tfw/.TAB` of each sheet. The grid is computed on purpose, so that the plugin
+does not have to ship Lantmäteriet's large index file with the real sheet extents; it matches the
+real index for all but 2 of 12 015 sheets, but it is still not the real extent. That is why only
+data with a georeferenced sheet in that grid is covered. Left out on purpose:
 
 - **`Norrlands_inland`** on the same server: a separate series of about 1 050 scans (roughly
   80 MB each) with their own names (`141_15c2-3g-h77_0.tif`), no `.tfw/.TAB` and no coordinates.
