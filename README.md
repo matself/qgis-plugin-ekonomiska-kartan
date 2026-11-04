@@ -28,10 +28,12 @@ Lantmäteriet publishes as open data.
   enlarged those sheets towards a side without a neighbour sheet, but wrote a `.tfw/.TAB` that
   squeezes the whole scan into one cell. They are loaded through a `_fixed.vrt` that places the
   whole scan at 1 m/pixel, so the extra map outside the cell is kept. The side is taken from the
-  checklist `ekonomiska_kartan/data/nonstandard_sheets.csv`: verified by eye (5 sheets), inferred
+  checklist `ekonomiska_kartan/data/nonstandard_sheets.csv`: verified by eye (6 sheets), inferred
   from the missing neighbour sheet (130 of 187, `scripts/infer_offsets.py`), otherwise measured from
   the image and flagged "(unverified)" when uncertain. A few pixels of difference are within
-  the scanning and rectification accuracy and are not corrected.
+  the scanning and rectification accuracy and are not corrected. One verified sheet, `3b9i`
+  (Kullen, 1972), also lies 2000 m east of its grid cell: the offset is negative there
+  (`-2000,0`), checked against the two lighthouses on the sheet and the seam to `3b8j`.
 
 ## Not covered
 

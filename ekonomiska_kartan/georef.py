@@ -9,7 +9,8 @@ Checked against the base map: the scan is 1.0 m/pixel and the neatline is exactl
 (5000 px) wide, but the metadata does not say on which side the extra map lies.
 
 Where the cell lies inside the image is therefore found in this order:
-  1. ``data/nonstandard_sheets.csv``, column ``verified_offset`` (checked by eye),
+  1. ``data/nonstandard_sheets.csv``, column ``verified_offset`` (checked by eye; negative
+     when the scan starts inside the cell, as for 3b9i that lies 2000 m east of its cell),
   2. column ``inferred_offset``: the enlargement is on the side without a neighbour sheet
      (made by ``scripts/infer_offsets.py``; empty when that cannot be told),
   3. measured from the image: the 5000 px window with paper-white margin just outside it.

@@ -59,6 +59,8 @@ def test_known_offsets_from_checklist():
     assert georef.known_offset("133_2d5j74_0_b2") == (0, 0)
     assert georef.known_offset("133_8a6g78_0_b2") == (402, 0)
     assert georef.known_offset("133_10a0j79_0_b2") is None  # listed, not yet verified
+    # Kullen: the scan lies 2000 m east of its cell, so the offset (px left of the cell) is negative
+    assert georef.known_offset("133_3b9i72_0_b2") == (-2000, 0)
     assert not georef.is_listed("133_5h5c42_0_b2")
 
 
