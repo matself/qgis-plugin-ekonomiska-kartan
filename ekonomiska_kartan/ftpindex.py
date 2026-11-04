@@ -3,7 +3,7 @@
 Pure Python (no QGIS imports). File names look like ``133_10a0g79_0_b2.tif``
 where ``79`` is the map year, which cannot be computed - hence one LIST per block.
 """
-import ftplib
+import ftplib  # nosec B402 - the open-data server is only reachable by plain anonymous FTP
 import re
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
@@ -166,14 +166,18 @@ def latest(editions):
 
 
 def connect(timeout=30):
-    """Anonymous FTP connection, explicit TLS when the server offers it."""
+    """Anonymous FTP connection, explicit TLS when the server offers it.
+
+    download-opendata.lantmateriet.se answers 504 to AUTH TLS and has no HTTP(S) access, so
+    in practice the plain connection is used. Only public open data is read, no credentials.
+    """
     ftp = ftplib.FTP_TLS(HOST, timeout=timeout)
     try:
         ftp.login()
         ftp.prot_p()
     except (ftplib.error_perm, ftplib.error_reply, AttributeError):
         ftp.close()  # do not leave the TLS attempt's socket open
-        ftp = ftplib.FTP(HOST, timeout=timeout)
+        ftp = ftplib.FTP(HOST, timeout=timeout)  # nosec B321 - see the docstring
         ftp.login()
     return ftp
 

@@ -38,7 +38,8 @@ def is_empty(path):
             for i in range(count):
                 tag, kind, n = struct.unpack_from(order + "HHI", entries, 12 * i)
                 if tag in (TILE_BYTE_COUNTS, STRIP_BYTE_COUNTS) and kind in SIZES:
-                    raw = entries[12 * i + 8 : 12 * i + 12]
+                    start = 12 * i + 8
+                    raw = entries[start:start + 4]
                     counts[tag] = _values(f, order, kind, n, raw)
     except (OSError, struct.error):
         return False
