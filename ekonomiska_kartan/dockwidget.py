@@ -1,4 +1,6 @@
 """Dock widget for Ekonomiska kartan."""
+from pathlib import Path
+
 from qgis.core import (
     Qgis,
     QgsApplication,
@@ -15,7 +17,10 @@ from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
     QComboBox,
     QDockWidget,
+    QDoubleSpinBox,
     QFileDialog,
+    QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -27,7 +32,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
-from . import georef, grid, gridlayer
+from . import adjust, georef, grid, gridlayer
 from .maptool import RectTool, style_band
 from .tasks import DownloadTask, ListTask
 
@@ -161,6 +166,8 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.btn_download.clicked.connect(self.download)
         layout.addWidget(self.btn_download)
 
+        layout.addWidget(self._build_adjust_box())
+
         self.lbl_status = QLabel("")
         self.lbl_status.setWordWrap(True)
         layout.addWidget(self.lbl_status)
@@ -168,6 +175,8 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self.setWidget(content)
         QgsProject.instance().readProject.connect(self.ensure_grid)
         self.ensure_grid()
+        self.iface.layerTreeView().currentLayerChanged.connect(self._on_layer_selected)
+        self._on_layer_selected(self.iface.activeLayer())
 
     # -- map: grid and search box ---------------------------------------
     def _toggle_draw(self, on):
@@ -231,6 +240,7 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         """Remove everything this widget put on the map (called on plugin unload)."""
         self._stop_following_grid()
         QgsProject.instance().readProject.disconnect(self.ensure_grid)
+        self.iface.layerTreeView().currentLayerChanged.disconnect(self._on_layer_selected)
         gridlayer.remove_layer()
         self.canvas.destinationCrsChanged.disconnect(self._update_highlight)
         self.canvas.unsetMapTool(self.tool)
@@ -415,6 +425,93 @@ class EkonomiskaKartanDockWidget(QDockWidget):
         self._update_total()
         self._update_highlight()
 
+    # -- adjust the placement of a sheet --------------------------------
+    def _build_adjust_box(self):
+        """Collapsed section: move the selected sheet layer east/north by a distance in metres."""
+        box = QGroupBox(self.tr("Adjust placement"))
+        box.setCheckable(True)
+        box.setChecked(False)
+        box.setToolTip(
+            self.tr(
+                "Moves the sheet on the map by the given distance (minus = west or south). The"
+                " shift is remembered on this computer and used again whenever this plugin"
+                " loads the sheet; the downloaded files are not changed."
+            )
+        )
+        outer = QVBoxLayout(box)
+        self.adjust_body = QWidget()
+        self.adjust_body.setVisible(False)
+        box.toggled.connect(self.adjust_body.setVisible)
+        body = QVBoxLayout(self.adjust_body)
+        body.setContentsMargins(0, 0, 0, 0)
+
+        self.lbl_adjust = QLabel("")
+        self.lbl_adjust.setWordWrap(True)
+        body.addWidget(self.lbl_adjust)
+        form = QFormLayout()
+        self.spin_east, self.spin_north = QDoubleSpinBox(), QDoubleSpinBox()
+        for spin in (self.spin_east, self.spin_north):
+            spin.setRange(-adjust.LIMIT, adjust.LIMIT)
+            spin.setDecimals(1)
+            spin.setSuffix(" m")
+        form.addRow(self.tr("East (+) / west (-):"), self.spin_east)
+        form.addRow(self.tr("North (+) / south (-):"), self.spin_north)
+        body.addLayout(form)
+        row = QHBoxLayout()
+        self.btn_adjust = QPushButton(self.tr("Apply"))
+        self.btn_adjust.clicked.connect(lambda: self._apply_adjustment(reset=False))
+        self.btn_adjust_reset = QPushButton(self.tr("Reset"))
+        self.btn_adjust_reset.clicked.connect(lambda: self._apply_adjustment(reset=True))
+        row.addWidget(self.btn_adjust)
+        row.addWidget(self.btn_adjust_reset)
+        body.addLayout(row)
+        outer.addWidget(self.adjust_body)
+        return box
+
+    def _on_layer_selected(self, layer=None):
+        """Follow the layer selected in the layer list: only a sheet of ours can be adjusted."""
+        sheet = isinstance(layer, QgsRasterLayer) and adjust.sheet_stem(layer.source())
+        self._adjust_layer_id = layer.id() if sheet else None
+        if sheet:
+            self.lbl_adjust.setText(self.tr("Layer: {name}").format(name=layer.name()))
+            dx, dy = adjust.load(QSettings()).get(sheet, (0.0, 0.0))
+        else:
+            self.lbl_adjust.setText(self.tr("Select a sheet layer in the layer list."))
+            dx, dy = 0.0, 0.0
+        self.spin_east.setValue(dx)
+        self.spin_north.setValue(dy)
+        for widget in (self.spin_east, self.spin_north, self.btn_adjust, self.btn_adjust_reset):
+            widget.setEnabled(bool(sheet))
+
+    def _apply_adjustment(self, reset):
+        layer = QgsProject.instance().mapLayer(self._adjust_layer_id or "")
+        if layer is None:
+            return
+        stem = adjust.sheet_stem(layer.source())
+        tif = Path(layer.source().split("|")[0]).with_name(stem + ".tif")
+        if not tif.exists():
+            self.lbl_status.setText(self.tr("The sheet's tif file is missing next to the layer."))
+            return
+        dx, dy = (0.0, 0.0) if reset else (self.spin_east.value(), self.spin_north.value())
+        try:
+            source, _status = adjust.placed_source(tif, (dx, dy))
+            layer.setDataSource(source, layer.name(), "gdal")
+        except Exception as e:
+            error = self.tr("Could not adjust the placement: {error}").format(error=e)
+            self.lbl_status.setText(error)
+            return
+        if not layer.crs().isValid():
+            layer.setCrs(QgsCoordinateReferenceSystem(grid.CRS_AUTHID))
+        layer.triggerRepaint()
+        adjust.store(QSettings(), stem, dx, dy)
+        self.spin_east.setValue(dx)
+        self.spin_north.setValue(dy)
+        if reset:
+            text = self.tr("Placement reset: {name}.")
+        else:
+            text = self.tr("Placement adjusted: {name}.")
+        self.lbl_status.setText(text.format(name=layer.name()))
+
     # -- download -------------------------------------------------------
     def _choose_dir(self):
         path = QFileDialog.getExistingDirectory(
@@ -433,7 +530,8 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             return
         self.btn_download.setEnabled(False)
         self.lbl_status.setText(self.tr("Downloading …"))
-        self._run(DownloadTask(eds, self.dir_edit.text(), self._on_downloaded))
+        shifts = adjust.load(QSettings())
+        self._run(DownloadTask(eds, self.dir_edit.text(), self._on_downloaded, shifts))
 
     def _confirm_large(self, eds):
         text = self.tr("You are about to download {count} sheets, about {size}. Continue?")
@@ -460,6 +558,8 @@ class EkonomiskaKartanDockWidget(QDockWidget):
             suffix = self.tr(" (unverified)") if status == georef.UNVERIFIED else ""
             if name in task.empty:
                 suffix += self.tr(" (empty)")
+            if name in task.adjusted:
+                suffix += self.tr(" (adjusted)")
             layer = QgsRasterLayer(path, name + suffix)
             if not layer.isValid():
                 continue

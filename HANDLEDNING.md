@@ -66,6 +66,25 @@ fråga först, eftersom det blir mycket data.
 - **(ingen tif):** det finns ingen bildfil för det bladet, så det kan inte hämtas.
 - **Blad utan karta:** rutor i området som Lantmäteriet inte har något blad för.
 
+## Om ett blad ligger fel
+
+Några blad ligger fel i Lantmäteriets data, till exempel en bit åt sidan. Du kan flytta bladet
+rätt själv:
+
+1. Markera bladets lager i lagerlistan.
+2. Öppna **Justera placering** längst ner i panelen (den är hopfälld från början).
+3. Mät i QGIS hur långt bladet ligger fel mot bakgrundskartan, och skriv in hur många meter det ska
+   flyttas i fälten **Öster (+) / väster (-)** och **Norr (+) / söder (-)**. Plus flyttar bladet åt
+   öster eller norr, minus åt väster eller söder. Ligger bladet 2 000 m för långt åt väster skriver
+   du `2000` vid öster.
+4. Klicka på **Använd**. Bladet flyttas direkt. **Återställ** tar tillbaka ursprunglig placering.
+
+Förflyttningen sparas på din dator och används igen nästa gång tillägget läser in just det bladet.
+De nedladdade filerna ändras aldrig. Det går bara att flytta ett blad rakt i sidled och höjdled,
+inte vrida eller förstora det.
+
+Vill du att felet ska rättas för alla: lämna bladets filnamn och måtten under *Issues* på GitHub.
+
 ## Bra att veta
 
 - Sökrutnätet är framräknat av tillägget och är inte kartverkets verkliga bladindelning (se

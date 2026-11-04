@@ -4,7 +4,7 @@ from pathlib import Path
 from qgis.core import QgsTask
 from qgis.PyQt.QtCore import QCoreApplication
 
-from . import ftpindex, georef, grid, tiffcheck
+from . import adjust, ftpindex, grid, tiffcheck
 
 
 class ListTask(QgsTask):
@@ -55,7 +55,7 @@ class ListTask(QgsTask):
 class DownloadTask(QgsTask):
     """Download .tif/.tfw/.TAB for the chosen editions; skips existing files."""
 
-    def __init__(self, editions, target_dir, on_done):
+    def __init__(self, editions, target_dir, on_done, shifts=None):
         super().__init__(
             QCoreApplication.translate("tasks", "Ekonomiska kartan: download"),
             QgsTask.Flag.CanCancel,
@@ -63,8 +63,10 @@ class DownloadTask(QgsTask):
         self.editions = list(editions)
         self.target_dir = Path(target_dir)
         self.on_done = on_done
+        self.shifts = shifts or {}  # stem -> (dx, dy) the user has saved for a sheet
         self.layers = []  # (layer name, path to load, georef status or None) in download order
         self.empty = set()  # layer names of tifs that hold no image data
+        self.adjusted = set()  # layer names of sheets moved by a shift the user saved
         self.error = None
 
     def run(self):
@@ -88,8 +90,11 @@ class DownloadTask(QgsTask):
                                 return False
                     if "tif" in ed.files:
                         tif = self.target_dir / ed.files["tif"][0]
-                        path, status = georef.layer_source(tif)
+                        shift = self.shifts.get(tif.stem, (0.0, 0.0))
+                        path, status = adjust.placed_source(tif, shift)
                         self.layers.append((tif.name, path, status))
+                        if any(shift):
+                            self.adjusted.add(tif.name)
                         if tiffcheck.is_empty(tif):
                             self.empty.add(tif.name)
                     self.setProgress(100 * min(done, total) / total)

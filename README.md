@@ -19,6 +19,12 @@ Lantmäteriet publishes as open data.
   with a thick orange outline for the row you have selected in the list.
 - "Pick sheets on map" ticks and unticks the listed sheets from the map: click a sheet to toggle
   it, drag a rectangle to select several (Shift adds, Ctrl removes).
+- A sheet that lies in the wrong place can be moved by the user: select its layer, open "Adjust
+  placement" (collapsed by default), enter metres east (+) / west (-) and north (+) / south (-)
+  and press Apply. The shift
+  (a pure translation, no rotation or scale) is stored in the QGIS settings per sheet, written
+  to a `<stem>_adjusted.vrt` next to the tif and applied again when the plugin loads the sheet;
+  the downloaded files are never changed.
 - Sheets with several editions (years) get an edition selector; the latest is the default.
 - Sheets that cover several grid cells (the islands Ven and Hanö, `3c0a-b` and `3e1h-i2h-i`) are
   listed once and loaded with their own georeferencing.

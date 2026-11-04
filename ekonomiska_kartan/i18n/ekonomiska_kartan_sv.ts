@@ -4,6 +4,58 @@
 <context>
     <name>EkonomiskaKartanDockWidget</name>
     <message>
+        <source>Adjust placement</source>
+        <translation>Justera placering</translation>
+    </message>
+    <message>
+        <source>Moves the sheet on the map by the given distance (minus = west or south). The shift is remembered on this computer and used again whenever this plugin loads the sheet; the downloaded files are not changed.</source>
+        <translation>Flyttar bladet på kartan så långt som anges (minus = väster eller söder). Förflyttningen sparas på den här datorn och används igen varje gång tillägget läser in bladet; de nedladdade filerna ändras inte.</translation>
+    </message>
+    <message>
+        <source>East (+) / west (-):</source>
+        <translation>Öster (+) / väster (-):</translation>
+    </message>
+    <message>
+        <source>North (+) / south (-):</source>
+        <translation>Norr (+) / söder (-):</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>Använd</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Återställ</translation>
+    </message>
+    <message>
+        <source>Layer: {name}</source>
+        <translation>Lager: {name}</translation>
+    </message>
+    <message>
+        <source>Select a sheet layer in the layer list.</source>
+        <translation>Markera ett bladlager i lagerlistan.</translation>
+    </message>
+    <message>
+        <source>Placement adjusted: {name}.</source>
+        <translation>Placeringen är justerad: {name}.</translation>
+    </message>
+    <message>
+        <source>Placement reset: {name}.</source>
+        <translation>Placeringen är återställd: {name}.</translation>
+    </message>
+    <message>
+        <source>Could not adjust the placement: {error}</source>
+        <translation>Kunde inte justera placeringen: {error}</translation>
+    </message>
+    <message>
+        <source>The sheet's tif file is missing next to the layer.</source>
+        <translation>Bladets tif-fil saknas bredvid lagret.</translation>
+    </message>
+    <message>
+        <source> (adjusted)</source>
+        <translation> (justerad)</translation>
+    </message>
+    <message>
         <source>Select all</source>
         <translation>Välj alla</translation>
     </message>
